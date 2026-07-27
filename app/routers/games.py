@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import select, func, Session
 from sqlalchemy.orm import selectinload
+from sqlalchemy import or_
 
 from app.database import get_session
 from app.models import Game, GameGenreLink, Genre, Platform, StorageDevice
@@ -87,44 +88,126 @@ def _game_to_dict(game: Game) -> dict:
     }
 
 
+SORT_WHITELIST = {
+    "title": Game.title,
+    "interest_rating": Game.interest_rating,
+    "score": Game.score,
+    "gameplay_status": Game.gameplay_status,
+    "hltb_main": Game.hltb_main,
+    "hltb_main_extra": Game.hltb_main_extra,
+    "hltb_full": Game.hltb_full,
+    "playtime_seconds": Game.playtime_seconds,
+    "coop_players": Game.coop_players,
+    "updated_at": Game.updated_at,
+    "created_at": Game.created_at,
+}
+
+
 @router.get("")
 def list_games(
     limit: int = Query(default=60, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     search: str | None = Query(default=None),
-    platform_id: int | None = Query(default=None),
     status: str | None = Query(default=None),
-    genre_id: int | None = Query(default=None),
+    platform: str | None = Query(default=None),
+    genre: str | None = Query(default=None),
+    hds: str | None = Query(default=None),
+    coop_type: str | None = Query(default=None),
+    interest_min: int | None = Query(default=None, ge=1, le=5),
+    interest_max: int | None = Query(default=None, ge=1, le=5),
+    sort: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
     base_stmt = select(Game)
 
     if search:
         base_stmt = base_stmt.where(Game.title.ilike(f"%{search}%"))
-    if platform_id is not None:
-        base_stmt = base_stmt.where(Game.platform_id == platform_id)
+
     if status:
-        base_stmt = base_stmt.where(Game.gameplay_status == status)
-    if genre_id is not None:
-        base_stmt = base_stmt.where(
-            Game.id.in_(
-                select(GameGenreLink.game_id).where(GameGenreLink.genre_id == genre_id)
-            )
-        )
+        status_list = [s.strip() for s in status.split(",") if s.strip()]
+        if status_list:
+            base_stmt = base_stmt.where(Game.gameplay_status.in_(status_list))
+
+    if platform:
+        platform_names = [p.strip() for p in platform.split(",") if p.strip()]
+        if platform_names:
+            plats = session.exec(
+                select(Platform.id).where(Platform.name.in_(platform_names))
+            ).all()
+            if plats:
+                base_stmt = base_stmt.where(Game.platform_id.in_(plats))
+
+    if genre:
+        genre_names = [g.strip() for g in genre.split(",") if g.strip()]
+        if genre_names:
+            matched = session.exec(
+                select(Genre.id).where(Genre.name.in_(genre_names))
+            ).all()
+            if matched:
+                base_stmt = base_stmt.where(
+                    Game.id.in_(
+                        select(GameGenreLink.game_id).where(
+                            GameGenreLink.genre_id.in_(matched)
+                        )
+                    )
+                )
+
+    if hds:
+        hd_list = [h.strip() for h in hds.split(",") if h.strip()]
+        if hd_list:
+            hd_conditions = []
+            uninstalled = "__uninstalled__" in hd_list
+            named = [h for h in hd_list if h != "__uninstalled__"]
+            if named:
+                devices = session.exec(
+                    select(StorageDevice.id).where(StorageDevice.name.in_(named))
+                ).all()
+                if devices:
+                    hd_conditions.append(Game.storage_device_id.in_(devices))
+            if uninstalled:
+                hd_conditions.append(Game.storage_device_id.is_(None))
+            if hd_conditions:
+                base_stmt = base_stmt.where(or_(*hd_conditions))
+
+    if coop_type:
+        coop_list = [c.strip() for c in coop_type.split(",") if c.strip()]
+        if coop_list:
+            coop_conditions = [Game.coop_type.contains(f'"{c}"') for c in coop_list]
+            base_stmt = base_stmt.where(or_(*coop_conditions))
+
+    if interest_min is not None:
+        base_stmt = base_stmt.where(Game.interest_rating >= interest_min)
+    if interest_max is not None:
+        base_stmt = base_stmt.where(Game.interest_rating <= interest_max)
 
     count_stmt = select(func.count()).select_from(base_stmt.subquery())
     total = session.exec(count_stmt).one()
 
-    stmt = (
-        base_stmt.options(
-            selectinload(Game.platform),
-            selectinload(Game.storage_device),
-            selectinload(Game.genres),
-        )
-        .order_by(Game.updated_at.desc())
-        .offset(offset)
-        .limit(limit)
+    stmt = base_stmt.options(
+        selectinload(Game.platform),
+        selectinload(Game.storage_device),
+        selectinload(Game.genres),
     )
+
+    if sort:
+        sort_fields = [s.strip() for s in sort.split(",") if s.strip()]
+        order_cols = []
+        for sf in sort_fields:
+            parts = sf.split(":")
+            field = parts[0].strip()
+            direction = parts[1].strip().lower() if len(parts) > 1 else "asc"
+            col = SORT_WHITELIST.get(field)
+            if col is None:
+                continue
+            order_cols.append(col.desc() if direction == "desc" else col.asc())
+        if order_cols:
+            stmt = stmt.order_by(*order_cols)
+        else:
+            stmt = stmt.order_by(Game.updated_at.desc())
+    else:
+        stmt = stmt.order_by(Game.updated_at.desc())
+
+    stmt = stmt.offset(offset).limit(limit)
     games = session.exec(stmt).all()
 
     return {
@@ -188,9 +271,9 @@ def create_game(data: dict, session: Session = Depends(get_session)):
         hltb_main=data.get("hltb_main", 0),
         hltb_main_extra=data.get("hltb_main_extra", 0),
         hltb_full=data.get("hltb_full", 0),
-        coop_players=data.get("coop_players", "1 (Singleplayer)"),
-        coop_type=Game.coop_type_str(data.get("coop_type", ["Um Jogador"])),
-        coop_screen_type=data.get("coop_screen_type", "tela inteira"),
+        coop_players=data.get("coop_players", "1 Jogador"),
+        coop_type=Game.coop_type_str(coop_type_raw),
+        coop_screen_type=data.get("coop_screen_type", "Tela Inteira"),
         input_recommendation=data.get("input_recommendation", "Controle"),
         playtime_seconds=data.get("playtime_seconds", 0),
         notes=data.get("notes"),

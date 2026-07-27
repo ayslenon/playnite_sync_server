@@ -43,11 +43,11 @@ class Game(SQLModel, table=True):
     hltb_main_extra: float = Field(default=0, nullable=False)
     hltb_full: float = Field(default=0, nullable=False)
 
-    coop_players: str = Field(default="1 (Singleplayer)", nullable=False)
+    coop_players: str = Field(default="1 Jogador", nullable=False)
     coop_type: str = Field(
         default='["Um Jogador"]', sa_column=Column(Text, nullable=False)
     )
-    coop_screen_type: str = Field(default="tela inteira", nullable=False)
+    coop_screen_type: str = Field(default="Tela Inteira", nullable=False)
 
     input_recommendation: str = Field(default="Controle", nullable=False)
 

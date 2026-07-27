@@ -37,6 +37,11 @@ O servidor cria o banco `game_library.db` e popula automaticamente no primeiro s
 - **16 plataformas** (PC Steam, Epic, GOG, EA, Ubisoft, 3DS, DS, GBA, N64, GameCube, PS1, PS2, PSP, SNES, Switch, Wii)
 - **4 discos** (SSD Windows, HD ROMs, HD Singleplayer, HD Multiplayer)
 
+Para popular com dados de exemplo (63 jogos fictícios):
+```bash
+python seed_games.py
+```
+
 ## Documentação da API
 
 Com o servidor rodando, acesse:
@@ -50,10 +55,10 @@ Com o servidor rodando, acesse:
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/api/games` | Lista paginada (limit=60, offset=0). Suporta `?search=`, `?platform_id=`, `?status=`, `?genre_id=` |
+| `GET` | `/api/games` | Lista paginada (limit=60, offset=0). Suporta `?search=`, `?status=`, `?platform=`, `?genre=`, `?hds=`, `?coop_type=`, `?interest_min=`, `?interest_max=`, `?sort=` |
 | `GET` | `/api/games/{id}` | Detalhe de um jogo |
 | `POST` | `/api/games` | Criar jogo |
-| `PUT` | `/api/games/{id}` | Atualizar jogo |
+| `PUT` | `/api/games/{id}` | Atualizar jogo (permite alterar todos os campos) |
 | `DELETE` | `/api/games/{id}` | Remover jogo |
 
 **Regras de negócio no POST/PUT:**
@@ -61,6 +66,7 @@ Com o servidor rodando, acesse:
 - `storage_device` (nome) é criado automaticamente se não existir
 - `coop_type` aceita `list[str]` (ex: `["Sofá", "Online"]`), serializado como JSON no banco
 - Se `gameplay_status == "Finalizado"` e `replay_score` for `null`, assume `3`
+- Qualquer campo não informado mantém o valor atual (no PUT)
 
 #### Catálogos
 
@@ -83,6 +89,7 @@ Com o servidor rodando, acesse:
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
+| `GET` | `/api/export/xlsx` | Exportar planilha .xlsx |
 | `GET` | `/api/health` | Health check |
 
 ## Testar com curl
@@ -93,6 +100,9 @@ curl http://localhost:8000/api/health
 
 # Plataformas
 curl http://localhost:8000/api/platforms
+
+# Listar jogos com filtros
+curl "http://localhost:8000/api/games?status=Jogando&limit=10"
 
 # Criar jogo
 curl -X POST http://localhost:8000/api/games \
@@ -107,9 +117,14 @@ curl -X POST http://localhost:8000/api/games \
     "coop_type": ["Online"],
     "input_recommendation": "Controle"
   }'
+```
 
-# Listar jogos (com filtro)
-curl "http://localhost:8000/api/games?status=Jogando&limit=10"
+## Filtros Multi-Valor
+
+A API suporta filtros multi-valor via query params separados por vírgula:
+
+```
+GET /api/games?status=Backlog,Jogando&platform=PC (Steam),Switch&genre=RPG,Aventura&interest_min=3&interest_max=5&coop_type=Sofá,Online&hds=SSD Windows,__uninstalled__&sort=title:asc,interest_rating:desc
 ```
 
 ## Variáveis de ambiente
@@ -138,9 +153,11 @@ server/
 │   │   ├── games.py          # CRUD jogos
 │   │   ├── genres.py         # CRUD gêneros
 │   │   ├── platforms.py      # CRUD plataformas
-│   │   └── storage.py        # CRUD discos
+│   │   ├── storage.py        # CRUD discos
+│   │   └── export.py         # Export XLSX
 │   ├── services/             # (futuro: lógica de sync, metadados)
-│   └── utils/                # (futuro: export/import xlsx)
+│   └── utils/
+│       └── xlsx.py           # Geração de planilha .xlsx
 ├── requirements.txt
 ├── .env.example
 ├── DOCS_BACKEND.md           # Documentação técnica completa

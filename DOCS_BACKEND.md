@@ -55,8 +55,9 @@ server/
 │   │   ├── genres.py          # CRUD /api/genres
 │   │   ├── platforms.py       # CRUD /api/platforms
 │   │   ├── storage.py         # CRUD /api/storage-devices
-│   │   ├── sync.py            # POST /api/sync/playnite
-│   │   └── metadata.py        # Busca IGDB/RAWG/HLTB
+│   │   ├── export.py          # GET /api/export/xlsx
+│   │   ├── sync.py            # (futuro) POST /api/sync/playnite
+│   │   └── metadata.py        # (futuro) Busca IGDB/RAWG/HLTB
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── playnite_merge.py  # Lógica de merge bidirecional
@@ -67,6 +68,7 @@ server/
 │       └── xlsx.py            # Export/import de planilha .xlsx
 ├── .env.example
 ├── requirements.txt
+├── seed_games.py               # Popula 63 jogos fictícios para teste
 └── DOCS_BACKEND.md            # Este arquivo
 ```
 
@@ -107,9 +109,9 @@ CREATE TABLE games (
     hltb_full           REAL NOT NULL DEFAULT 0,
 
     -- Coop (serializado como JSON string)
-    coop_players        TEXT NOT NULL DEFAULT '1 (Singleplayer)',
+    coop_players        TEXT NOT NULL DEFAULT '1 Jogador',
     coop_type           TEXT NOT NULL DEFAULT '["Um Jogador"]',  -- JSON array
-    coop_screen_type    TEXT NOT NULL DEFAULT 'tela inteira',
+    coop_screen_type    TEXT NOT NULL DEFAULT 'Tela Inteira',
 
     -- Input
     input_recommendation TEXT NOT NULL DEFAULT 'Controle',
@@ -278,9 +280,9 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
       "hltb_main": 51,
       "hltb_main_extra": 102,
       "hltb_full": 172,
-      "coop_players": "1 (Singleplayer)",
+      "coop_players": "1 Jogador",
       "coop_type": ["Um Jogador"],
-      "coop_screen_type": "tela inteira",
+      "coop_screen_type": "Tela Inteira",
       "input_recommendation": "Controle",
       "playtime_seconds": 0,
       "notes": "Sensacional.",
@@ -309,9 +311,9 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
   "gameplay_status": "Backlog",
   "interest_rating": 5,
   "must_test": false,
-  "coop_players": "Multiplayer",
+  "coop_players": "1 Jogador",
   "coop_type": ["Online"],
-  "coop_screen_type": "tela inteira",
+  "coop_screen_type": "Tela Inteira",
   "input_recommendation": "Controle",
   "hltb_main": 58,
   "hltb_main_extra": 101,
@@ -490,27 +492,41 @@ def extract_disk(install_dir: str | None) -> str | None:
 [x] Implementar CRUD de catálogos (/api/genres, /api/platforms, /api/storage-devices)
 [x] Implementar auto-criação de referências no POST/PUT games
 [x] Testar com dados mock via Swagger
+[x] Seed de 63 jogos fictícios (seed_games.py)
 ```
 
-### Fase 2: Migração de Dados (prioritário)
+### ✅ Fase 2: Migração de Dados (parcial)
 
 ```
 [ ] Implementar POST /api/migrate/xlsx (upload de planilha)
-[ ] Implementar GET /api/export/xlsx (dump do banco)
-[ ] Migrar dados reais da planilha para o banco
+[x] Implementar GET /api/export/xlsx (dump do banco)
+[x] 63 jogos seedados para teste (seed_games.py)
 ```
 
-### Fase 3: Conectar Frontend
+### ✅ Fase 3: Conectar Frontend (concluído)
 
 ```
-[ ] Substituir chamadas mock do frontend por fetch à API
-[ ] Implementar paginação (infinite scroll, 60 itens)
-[ ] Adaptar FilterBar para buscar plataformas/gêneros/discos da API
-[ ] Adaptar GameModal para enviar/receber da API
-[ ] Adaptar seletor de HD no GameModal para usar GET /api/storage-devices
+[x] src/services/api.js com funções fetch (createGame, updateGame, deleteGame, fetchGames)
+[x] Library.jsx conectado à API com fallback para mock data
+[x] Paginação com "Load More" (60 itens por página)
+[x] FilterBar busca plataformas/gêneros da API (/api/genres, /api/platforms)
+[x] GameModal envia/recebe da API (POST/PUT/DELETE)
+[x] GameModal com botão "Excluir Jogo" e confirmação
+[x] Seletor de HD no popup StatsCard integrado com filtro
 ```
 
-### Fase 4: Metadados (futuro)
+### ✅ Fase 4: Filtros Multi-Valor (concluído)
+
+```
+[x] API aceitar multi-valor nos parâmetros: ?status=Backlog,Jogando&platform=PC (Steam),Switch
+[x] Suporte a interest_min, interest_max, coop_type, hds (incluindo __uninstalled__)
+[x] Ordenador multi-campo: ?sort=title:asc,interest_rating:desc
+[x] Frontend: componente de ordenação (sort builder) com SortDropdown
+[x] Frontend: FilterBar envia filtros para API em vez de filtrar client-side
+[ ] Remover useMemo filter do Library.jsx (delegar ao servidor)
+```
+
+### Fase 5: Metadados (futuro)
 
 ```
 [ ] Implementar GET /api/metadata/search (IGDB/RAWG para capa + background)
@@ -518,7 +534,7 @@ def extract_disk(install_dir: str | None) -> str | None:
 [ ] Conectar botão "Buscar Automaticamente" no frontend
 ```
 
-### Fase 5: Sincronização Playnite (futuro)
+### Fase 6: Sincronização Playnite (futuro)
 
 ```
 [ ] Implementar GET /api/sync/playnite/changes (pull: servidor → Playnite)
@@ -526,7 +542,7 @@ def extract_disk(install_dir: str | None) -> str | None:
 [ ] Construir extensão C# do Playnite seguindo o contrato
 ```
 
-### Fase 6: Deploy (futuro)
+### Fase 7: Deploy (futuro)
 
 ```
 [ ] Configurar uvicorn + systemd no Raspberry Pi
