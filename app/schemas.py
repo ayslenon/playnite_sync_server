@@ -40,6 +40,7 @@ class GameCreate(BaseModel):
     replay_score: int | None = Field(default=None, ge=1, le=5)
     score: str | None = None
     must_test: bool = False
+    favorite: bool = False
     finish_hours: float | None = Field(default=None, ge=0)
     finish_date: str | None = None
     hltb_main: float = Field(default=0, ge=0)
@@ -106,6 +107,7 @@ class GameUpdate(BaseModel):
     replay_score: int | None = Field(default=None, ge=1, le=5)
     score: str | None = None
     must_test: bool | None = None
+    favorite: bool | None = None
     finish_hours: float | None = Field(default=None, ge=0)
     finish_date: str | None = None
     hltb_main: float | None = Field(default=None, ge=0)

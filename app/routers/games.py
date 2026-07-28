@@ -73,6 +73,7 @@ def _game_to_dict(game: Game) -> dict:
         "replay_score": game.replay_score,
         "score": game.score,
         "must_test": game.must_test,
+        "favorite": game.favorite,
         "finish_hours": game.finish_hours,
         "finish_date": game.finish_date,
         "hltb_main": game.hltb_main,
@@ -132,6 +133,7 @@ def list_games(
     coop_type: str | None = Query(default=None),
     interest_min: int | None = Query(default=None, ge=1, le=5),
     interest_max: int | None = Query(default=None, ge=1, le=5),
+    favorite: bool | None = Query(default=None),
     sort: str | None = Query(default=None),
     session: Session = Depends(get_session),
 ):
@@ -196,6 +198,9 @@ def list_games(
         base_stmt = base_stmt.where(Game.interest_rating >= interest_min)
     if interest_max is not None:
         base_stmt = base_stmt.where(Game.interest_rating <= interest_max)
+
+    if favorite is not None:
+        base_stmt = base_stmt.where(Game.favorite == favorite)
 
     count_stmt = select(func.count()).select_from(base_stmt.subquery())
     total = session.exec(count_stmt).one()
@@ -278,6 +283,7 @@ def _create_single_game(session: Session, data: GameCreate) -> Game:
         replay_score=data.replay_score,
         score=data.score,
         must_test=data.must_test,
+        favorite=data.favorite,
         finish_hours=data.finish_hours,
         finish_date=data.finish_date,
         hltb_main=data.hltb_main,
@@ -321,6 +327,7 @@ def _update_game_from_create(session: Session, game: Game, data: GameCreate) -> 
     game.replay_score = data.replay_score
     game.score = data.score
     game.must_test = data.must_test
+    game.favorite = data.favorite
     game.finish_hours = data.finish_hours
     game.finish_date = data.finish_date
     game.hltb_main = data.hltb_main
@@ -452,6 +459,7 @@ def update_game(
         "replay_score": data.replay_score,
         "score": data.score,
         "must_test": data.must_test,
+        "favorite": data.favorite,
         "finish_hours": data.finish_hours,
         "finish_date": data.finish_date,
         "hltb_main": data.hltb_main,

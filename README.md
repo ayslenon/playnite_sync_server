@@ -151,7 +151,7 @@ curl -X POST http://localhost:8000/api/games \
 A API suporta filtros multi-valor via query params separados por vírgula:
 
 ```
-GET /api/games?status=Backlog,Jogando&platform=PC (Steam),Switch&genre=RPG,Aventura&interest_min=3&interest_max=5&coop_type=Sofá,Online&hds=SSD Windows,__uninstalled__&sort=title:asc,interest_rating:desc
+GET /api/games?status=Backlog,Jogando&platform=PC (Steam),Switch&genre=RPG,Aventura&interest_min=3&interest_max=5&coop_type=Sofá,Online&hds=SSD Windows,__uninstalled__&favorite=true&sort=title:asc,interest_rating:desc
 ```
 
 ## Variáveis de ambiente

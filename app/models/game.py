@@ -35,6 +35,7 @@ class Game(SQLModel, table=True):
     replay_score: int | None = Field(default=None)
     score: str | None = Field(default=None)
     must_test: bool = Field(default=False, nullable=False)
+    favorite: bool = Field(default=False, nullable=False)
 
     finish_hours: float | None = Field(default=None)
     finish_date: str | None = Field(default=None)

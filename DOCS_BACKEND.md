@@ -98,6 +98,7 @@ CREATE TABLE games (
     replay_score        INTEGER,                          -- 1-5 (NULL se não finalizado)
     score               TEXT,                              -- "9/10", "8.5"
     must_test           INTEGER NOT NULL DEFAULT 0,       -- BOOL
+    favorite            INTEGER NOT NULL DEFAULT 0,       -- BOOL
 
     -- Finalização
     finish_hours        REAL,
@@ -278,6 +279,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 			"replay_score": null,
 			"score": null,
 			"must_test": false,
+			"favorite": false,
 			"finish_hours": null,
 			"finish_date": null,
 			"hltb_main": 51,
@@ -315,6 +317,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 	"gameplay_status": "Backlog",
 	"interest_rating": 5,
 	"must_test": false,
+	"favorite": false,
 	"coop_players": "1 Jogador",
 	"coop_type": ["Online"],
 	"coop_screen_type": "Tela Inteira",
@@ -479,6 +482,8 @@ Para informações que o Playnite possui e o servidor não (como `install_direct
 | `CoverImage` | `cover_url` | `"/api/covers/playnite/{Id}/{filename}"` |
 | `BackgroundImage` | `background_url` | Mesmo padrão |
 | `Notes` | `notes` | Direto |
+| `Favorite` | `favorite` | `bool` — mapeado direto do Playnite |
+| `Tags[]` | `coop_players` (override) | `_map_tags_coop_players()`: se Tag contiver `"2 Jogadores"`, `"Até 4 Jogadores"`, etc., sobrescreve `coop_players` detectado via Categories |
 
 **Jogos ignorados:**
 - `Hidden: true` — pulado
@@ -516,16 +521,17 @@ Para informações que o Playnite possui e o servidor não (como `install_direct
 **Algoritmo `_detect_platform()`:**
 
 ```python
-# Se Platforms contém "PC" ou "Windows":
-#   Se Source conhecido (Steam/Epic/GOG/EA/Ubisoft) → "PC ({Source})"
-#   Senão → "PC (Steam)"
-# Senão, busca em PLATFORM_MAP (case-insensitive, match parcial):
-#   "Nintendo Switch" / "Switch" → "Switch"
-#   "Nintendo 3DS" / "3DS" → "3DS"
-#   "PlayStation 1" / "PS1" → "PS1"
-#   "Game Boy Advance" / "GBA" → "GBA"
-#   ... etc
-# Fallback: primeiro item de Platforms, ou "PC (Steam)" se vazio
+# 1. Normaliza: _normalize_platform("PC (Windows)") → "PC"
+# 2. Se base "PC" ou "windows" presente:
+#      Se Source conhecido (Steam/Epic/GOG/EA/Ubisoft) → "PC ({Source})"
+#      Senão → "PC (Steam)"
+# 3. Senão, busca em PLATFORM_MAP (case-insensitive):
+#      "Nintendo Switch" / "Switch" → "Switch"
+#      "Nintendo 3DS" / "3DS" → "3DS"
+#      "PlayStation 1" / "PS1" → "PS1"
+#      "Game Boy Advance" / "GBA" → "GBA"
+#      ... etc
+# 4. Fallback: primeiro item de Platforms, ou "PC (Steam)" se vazio
 ```
 
 **Extração do disco a partir do `install_directory`:**

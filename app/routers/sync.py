@@ -62,10 +62,14 @@ COMPLETION_MAP = {
 }
 
 
-def _detect_platform(session: Session, platforms: list[str], source: str | None) -> str:
-    lower_platforms = {p.strip().lower() for p in platforms}
+def _normalize_platform(name: str) -> str:
+    return name.strip().split("(")[0].strip()
 
-    if "pc" in lower_platforms or "windows" in lower_platforms:
+
+def _detect_platform(session: Session, platforms: list[str], source: str | None) -> str:
+    base_platforms = {_normalize_platform(p).lower() for p in platforms}
+
+    if "pc" in base_platforms or "windows" in base_platforms:
         if source:
             source_lower = source.strip().lower()
             if source_lower in SOURCE_MAP:
@@ -137,6 +141,24 @@ def _map_features(features: list[str]) -> tuple[str, str]:
     return input_rec, screen
 
 
+PLAYER_TAG_MAP = {
+    "1 jogador": "1 Jogador",
+    "2 jogadores": "2 Jogadores",
+    "3 jogadores": "Até 4 Jogadores",
+    "4 jogadores": "Até 4 Jogadores",
+    "ate 4 jogadores": "Até 4 Jogadores",
+    "mais de 4 jogadores": "Mais de 4 Jogadores",
+}
+
+
+def _map_tags_coop_players(tags: list[str]) -> str | None:
+    tags_lower = {t.strip().lower() for t in tags}
+    for tag, mapped in PLAYER_TAG_MAP.items():
+        if tag in tags_lower:
+            return mapped
+    return None
+
+
 def _should_skip(game_data) -> tuple[bool, str | None]:
     if game_data.Hidden:
         return True, "Hidden game"
@@ -164,6 +186,7 @@ def _update_game_from_playnite(session: Session, game: Game, data: GameCreate) -
     game.input_recommendation = data.input_recommendation
     game.playtime_seconds = data.playtime_seconds
     game.notes = data.notes
+    game.favorite = data.favorite
     game.updated_at = datetime.now(timezone.utc).isoformat()
 
     existing_links = session.exec(
@@ -186,6 +209,9 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
     storage_name = _detect_storage_from_path(session, item.InstallDirectory)
     status = _map_completion(item.CompletionStatus)
     coop_type, coop_players = _map_categories(item.Categories)
+    tag_players = _map_tags_coop_players(item.Tags)
+    if tag_players:
+        coop_players = tag_players
     input_rec, coop_screen = _map_features(item.Features)
 
     cover_url = None
@@ -212,6 +238,7 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
         input_recommendation=input_rec,
         playtime_seconds=item.Playtime,
         notes=item.Notes,
+        favorite=item.Favorite,
     )
 
 
