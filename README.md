@@ -117,7 +117,7 @@ Com o servidor rodando, acesse:
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
-| `GET` | `/api/covers/playnite/{playnite_id}/{filename}` | Serve imagens de capa da pasta `./playnite_covers` |
+| `GET` | `/api/covers/playnite/{playnite_id}/{filename}` | Serve imagens de capa da pasta `./app/files` |
 
 ## Testar com curl
 
@@ -161,10 +161,10 @@ Copie `.env.example` para `.env`:
 ```
 DATABASE_URL=sqlite:///./game_library.db
 DEBUG=true
-COVERS_DIR=./playnite_covers
+COVERS_DIR=./app/files
 ```
 
-- `COVERS_DIR`: diretório com as capas exportadas do Playnite. O endpoint `GET /api/covers/playnite/{id}/{file}` serve arquivos daqui.
+- `COVERS_DIR`: diretório com as capas exportadas do Playnite (antigo `./app/files`). O endpoint `GET /api/covers/playnite/{id}/{file}` serve arquivos daqui.
 
 ## Estrutura de pastas
 

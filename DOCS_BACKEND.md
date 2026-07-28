@@ -672,6 +672,14 @@ def extract_disk(install_dir: str | None) -> str | None:
 [ ] Configurar cron de backup do .db e export .xlsx
 ```
 
+### ✅ Covers Path Fix (v1.2.1)
+
+```
+[x] COVERS_DIR corrigido de ./playnite_covers para ./app/files
+[x] Cobertura real de capas: 648 diretórios de covers encontrados em app/files/
+[x] Docs atualizados (.env.example, README.md, DOCS_BACKEND.md)
+```
+
 ---
 
 ## Referência Rápida: Como os Catálogos Integram com o Frontend
