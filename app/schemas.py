@@ -203,3 +203,28 @@ class HltbSearchResult(BaseModel):
     hltb_main_extra: float
     hltb_full: float
     cover_url: str | None = None
+
+
+class PlayniteGame(BaseModel):
+    Id: str
+    Name: str
+    InstallDirectory: str | None = None
+    IsInstalled: bool = True
+    Playtime: int = 0
+    Genres: list[str] = []
+    Platforms: list[str] = []
+    Source: str | None = None
+    CompletionStatus: str | None = None
+    Favorite: bool = False
+    Hidden: bool = False
+    Categories: list[str] = []
+    Tags: list[str] = []
+    Features: list[str] = []
+    CoverImage: str | None = None
+    BackgroundImage: str | None = None
+    PlayCount: int = 0
+    Notes: str | None = None
+
+
+class PlayniteSyncPayload(BaseModel):
+    games: list[PlayniteGame]

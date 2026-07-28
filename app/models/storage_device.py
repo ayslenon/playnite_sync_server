@@ -6,3 +6,4 @@ class StorageDevice(SQLModel, table=True):
 
     id: int | None = Field(default=None, primary_key=True)
     name: str = Field(unique=True, nullable=False)
+    drive_letter: str | None = Field(default=None)

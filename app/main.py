@@ -1,12 +1,15 @@
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from sqlmodel import select
 
+from app.config import settings
 from app.database import get_session, init_db
 from app.models import Platform, StorageDevice
-from app.routers import games, genres, platforms, storage, export, metadata
+from app.routers import games, genres, platforms, storage, export, metadata, sync
 
 SEED_PLATFORMS = [
     "PC (Steam)",
@@ -50,7 +53,7 @@ def seed_catalogs():
                 select(StorageDevice).where(StorageDevice.name == name)
             ).first()
             if not existing:
-                session.add(StorageDevice(name=name))
+                session.add(StorageDevice(name=name, drive_letter=letter))
 
         session.commit()
     finally:
@@ -98,6 +101,15 @@ app.include_router(platforms.router)
 app.include_router(storage.router)
 app.include_router(export.router)
 app.include_router(metadata.router)
+app.include_router(sync.router)
+
+
+@app.get("/api/covers/playnite/{playnite_id}/{filename}")
+def serve_playnite_cover(playnite_id: str, filename: str):
+    path = os.path.join(settings.covers_dir, playnite_id, filename)
+    if not os.path.isfile(path):
+        raise HTTPException(404, "Cover not found")
+    return FileResponse(path)
 
 
 @app.get("/api/health")

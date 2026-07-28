@@ -56,8 +56,8 @@ server/
 │   │   ├── platforms.py       # CRUD /api/platforms
 │   │   ├── storage.py         # CRUD /api/storage-devices
 │   │   ├── export.py          # GET /api/export/xlsx
-│   │   ├── sync.py            # (futuro) POST /api/sync/playnite
-│   │   └── metadata.py        # (futuro) Busca IGDB/RAWG/HLTB
+│   │   ├── sync.py            # POST /api/sync/playnite
+│   │   └── metadata.py        # GET /api/metadata/hltb
 │   ├── services/
 │   │   ├── __init__.py
 │   │   ├── playnite_merge.py  # Lógica de merge bidirecional
@@ -150,8 +150,9 @@ CREATE TABLE platforms (
 
 ```sql
 CREATE TABLE storage_devices (
-    id      INTEGER PRIMARY KEY AUTOINCREMENT,
-    name    TEXT NOT NULL UNIQUE
+    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+    name         TEXT NOT NULL UNIQUE,
+    drive_letter TEXT                   -- "C:", "R:", "J:", "M:" (para mapear InstallDirectory)
 );
 ```
 
@@ -230,10 +231,11 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ### 4.3 Sincronização
 
-| Método | Rota                                        | Descrição                                           |
-| ------ | ------------------------------------------- | --------------------------------------------------- |
-| `POST` | `/api/sync/playnite`                        | Recebe batch do Playnite, upsert, retorna merge     |
-| `GET`  | `/api/sync/playnite/changes?since=ISO_DATE` | Jogos modificados após data (para pull do Playnite) |
+| Método | Rota                                        | Descrição                                                    |
+| ------ | ------------------------------------------- | ------------------------------------------------------------ |
+| `POST` | `/api/sync/playnite`                        | Recebe JSON nativo do Playnite, upsert por playnite_id       |
+| `POST` | `/api/games/batch`                          | Upsert em lote via JSON (aceita GameCreate[], upsert por playnite_id) |
+| `GET`  | `/api/sync/playnite/changes?since=ISO_DATE` | (futuro) Jogos modificados após data — para pull do Playnite |
 
 ### 4.4 Migração (Planilha → Banco)
 
@@ -432,40 +434,98 @@ A extensão C# chama o endpoint para obter jogos modificados:
 
 Para informações que o Playnite possui e o servidor não (como `install_directory` e `playtime`):
 
-**Request** `POST /api/sync/playnite`:
+**Request** `POST /api/sync/playnite` (formato nativo do Playnite):
 
 ```json
 {
 	"games": [
 		{
-			"playnite_id": "893d56b2-6014-411a-84bf-3b62fefae101",
-			"title": "The Witcher 3: Wild Hunt",
-			"is_installed": true,
-			"install_directory": "J:\\Jogos\\TheWitcher3",
-			"playtime_seconds": 45000,
-			"last_activity": "2026-07-20T18:30:00",
-			"tags": ["Open World", "Fantasy", "Coop"]
+			"Id": "893d56b2-6014-411a-84bf-3b62fefae101",
+			"Name": "The Witcher 3: Wild Hunt",
+			"InstallDirectory": "J:\\Jogos\\TheWitcher3",
+			"IsInstalled": true,
+			"Playtime": 45000,
+			"Genres": ["RPG", "Aventura", "Mundo Aberto"],
+			"Platforms": ["PC"],
+			"Source": "Steam",
+			"CompletionStatus": "Completed",
+			"Favorite": false,
+			"Hidden": false,
+			"Categories": [],
+			"Tags": [],
+			"Features": ["Controller Support"],
+			"CoverImage": "C:\\Users\\...\\cover.png",
+			"BackgroundImage": null,
+			"PlayCount": 1,
+			"Notes": "Sensacional."
 		}
 	]
 }
 ```
 
+**Mapeamento de campos (Playnite → Game Library):**
+
+| Playnite | Game Library | Regra |
+|---|---|---|
+| `Id` | `playnite_id` | Chave primária do upsert |
+| `Name` | `title` | Direto |
+| `InstallDirectory` | `storage_device` | Extrai drive letter → busca `StorageDevice.drive_letter` |
+| `Playtime` (segundos) | `playtime_seconds` | Direto |
+| `Genres[]` | `genres[]` | Direto (se vazio, usa `["Outro"]`) |
+| `Source` + `Platforms[]` | `platform` | Ver `_detect_platform()` abaixo |
+| `CompletionStatus` | `gameplay_status` | `Playing → Jogando`, `Completed → Finalizado`, `Abandoned → Abandonado`, fallback → `Backlog` |
+| `Categories[]` | `coop_type` + `coop_players` | `"coop local"` ou `"coop emulação"` → `["Sofá"]`, `"coop online"` → `["Online"]`, ambos → `["Online", "Sofá"]`. Qualquer coop → `"2 Jogadores"` |
+| `Features[]` | `input_recommendation` + `coop_screen_type` | `"Controller support"` → `"Controle"`, senão `"Teclado/Mouse"`. `"Split screen"` → `"Tela Dividida"`, `"Versus"` → `"Versus"`, senão `"Tela Inteira"` |
+| `CoverImage` | `cover_url` | `"/api/covers/playnite/{Id}/{filename}"` |
+| `BackgroundImage` | `background_url` | Mesmo padrão |
+| `Notes` | `notes` | Direto |
+
+**Jogos ignorados:**
+- `Hidden: true` — pulado
+- `Categories` contém `"frontend launcher"` — pulado
+
 **Lógica do servidor ao receber:**
 
 ```
 1. Para cada game no array:
-   a. Busca por playnite_id
-   b. Se achar: atualiza apenas is_installed, install_directory, playtime_seconds
-      PRESERVA tudo que veio da planilha (status, notas, coop, etc.)
-   c. Se não achar: cria registro mínimo com defaults
-   d. Extrai letra do disco de InstallDirectory → mapeia para storage_device
-      Ex: "J:\\..." → "HD Singleplayer"
-   e. Mapeamento de tags multiplayer (opcional):
-      - Se tags incluir "Coop" → adiciona "Sofá" ao coop_type
-      - Se tags incluir "Online Coop" → adiciona "Online" ao coop_type
-      (Apenas na criação. Em atualização, coop_type do servidor prevalece.)
+   a. Verifica _should_skip() → Hidden ou frontend launcher
+   b. Traduz todos os campos via _playnite_to_gamecreate()
+   c. Busca por playnite_id
+   d. Se achar: _update_game_from_playnite() — atualiza apenas campos
+      que o Playnite conhece (NÃO mexe em hltb_*, interest_rating,
+      replay_score, score, must_test, finish_hours, finish_date)
+   e. Se não achar: cria registro completo com todos os campos mapeados
+   f. Extrai disco via StorageDevice.drive_letter
 
-2. Retorna response com os IDs processados
+2. Retorna response com IDs processados
+```
+
+**Response:**
+
+```json
+{
+	"processed": 3,
+	"skipped": 1,
+	"results": [
+		{ "id": "abc123", "title": "The Witcher 3", "action": "updated" },
+		{ "id": "def456", "title": "Elden Ring", "action": "created" }
+	]
+}
+```
+
+**Algoritmo `_detect_platform()`:**
+
+```python
+# Se Platforms contém "PC" ou "Windows":
+#   Se Source conhecido (Steam/Epic/GOG/EA/Ubisoft) → "PC ({Source})"
+#   Senão → "PC (Steam)"
+# Senão, busca em PLATFORM_MAP (case-insensitive, match parcial):
+#   "Nintendo Switch" / "Switch" → "Switch"
+#   "Nintendo 3DS" / "3DS" → "3DS"
+#   "PlayStation 1" / "PS1" → "PS1"
+#   "Game Boy Advance" / "GBA" → "GBA"
+#   ... etc
+# Fallback: primeiro item de Platforms, ou "PC (Steam)" se vazio
 ```
 
 **Extração do disco a partir do `install_directory`:**
@@ -581,12 +641,20 @@ def extract_disk(install_dir: str | None) -> str | None:
 [x] Botão "Buscar HLTB" conectado no modal (preenche hltb_* e cover_url)
 ```
 
-### Fase 6: Sincronização Playnite (futuro)
+### Fase 6: Sincronização Playnite
 
 ```
-[ ] Implementar GET /api/sync/playnite/changes (pull: servidor → Playnite)
-[ ] Implementar POST /api/sync/playnite (push: Playnite → servidor, apenas install + playtime)
-[ ] Construir extensão C# do Playnite seguindo o contrato
+[ ] Implementar GET /api/sync/playnite/changes (pull: servidor → Playnite) — futuro
+[x] Implementar POST /api/sync/playnite (push: Playnite → servidor)
+    - Mapeamento completo: playnite_id, title, platform, genres, gameplay_status,
+      coop_type, coop_players, coop_screen_type, input_recommendation,
+      playtime_seconds, storage_device, cover_url, background_url, notes
+    - _update_game_from_playnite: preserva hltb_*, interest_rating, replay_score,
+      score, must_test, finish_hours, finish_date
+    - Skip: jogos ocultos (Hidden) e frontend launcher
+    - _detect_platform com SOURCE_MAP + PLATFORM_MAP (case-insensitive)
+    - _detect_storage_from_path via drive_letter do StorageDevice
+[ ] Construir extensão C# do Playnite seguindo o contrato — futuro
 ```
 
 ### Fase 7: Deploy (futuro)

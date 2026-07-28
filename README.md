@@ -97,12 +97,27 @@ Com o servidor rodando, acesse:
 
 | Método | Rota | Descrição |
 |--------|------|-----------|
+| `POST` | `/api/sync/playnite` | Recebe JSON nativo do Playnite, upsert por `playnite_id`. Mapeamento completo de campos |
 | `POST` | `/api/games/batch` | Upsert em lote via JSON. Se `playnite_id` existir, atualiza; se não, cria |
 
-**Regras do batch upsert:**
-- `playnite_id` é opcional — se omitido, sempre cria novo registro
-- Se `playnite_id` for informado e já existir no banco, todos os campos são sobrescritos
+**Regras do `POST /api/sync/playnite`:**
+- Aceita o formato nativo de exportação do Playnite (`PlayniteGame[]`)
+- Mapeia `Id`, `Name`, `Platforms`+`Source`, `Genres`, `CompletionStatus`, `Categories` (coop), `Features` (input/screen), `InstallDirectory` (storage), `CoverImage`/`BackgroundImage` (cover serving), `Playtime`, `Notes`
+- Upsert por `playnite_id`: se existir, atualiza apenas campos do Playnite (preserva `hltb_*`, `interest_rating`, `replay_score`, `score`, `must_test`, `finish_hours`, `finish_date`)
+- Jogos com `Hidden: true` ou categoria `frontend launcher` são ignorados
+- `_detect_platform()`: case-insensitive, suporta PC(Steam/Epic/GOG/EA/Ubisoft), Switch, 3DS, DS, GBA, N64, GameCube, SNES, Wii, PS1, PS2, PSP
+- `_detect_storage_from_path()`: extrai drive letter do `InstallDirectory` → busca `StorageDevice.drive_letter`
+
+**Regras do batch upsert (`POST /api/games/batch`):**
+- `playnite_id` é opcional — se omitido, sempre cria registro novo
+- Se `playnite_id` informado e já existir, todos os campos são sobrescritos
 - Resposta inclui `action: "created" | "updated"` por item
+
+#### Covers
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `GET` | `/api/covers/playnite/{playnite_id}/{filename}` | Serve imagens de capa da pasta `./playnite_covers` |
 
 ## Testar com curl
 
@@ -146,7 +161,10 @@ Copie `.env.example` para `.env`:
 ```
 DATABASE_URL=sqlite:///./game_library.db
 DEBUG=true
+COVERS_DIR=./playnite_covers
 ```
+
+- `COVERS_DIR`: diretório com as capas exportadas do Playnite. O endpoint `GET /api/covers/playnite/{id}/{file}` serve arquivos daqui.
 
 ## Estrutura de pastas
 
@@ -162,11 +180,12 @@ server/
 │   │   ├── platform.py       # Platform
 │   │   └── storage_device.py # StorageDevice
 │   ├── routers/
-│   │   ├── games.py          # CRUD jogos
+│   │   ├── games.py          # CRUD jogos + batch upsert
 │   │   ├── genres.py         # CRUD gêneros
 │   │   ├── platforms.py      # CRUD plataformas
 │   │   ├── storage.py        # CRUD discos
 │   │   ├── export.py         # Export XLSX
+│   │   ├── sync.py           # POST /api/sync/playnite
 │   │   └── metadata.py       # GET /api/metadata/hltb
 │   ├── services/
 │   │   └── hltb.py           # Busca HLTB + arredondamento
