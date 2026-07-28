@@ -3,6 +3,7 @@ from sqlmodel import select, func, Session
 
 from app.database import get_session
 from app.models import Genre, GameGenreLink
+from app.schemas import CatalogCreate, CatalogUpdate
 
 router = APIRouter(prefix="/api/genres", tags=["genres"])
 
@@ -25,10 +26,8 @@ def list_genres(session: Session = Depends(get_session)):
 
 
 @router.post("", status_code=201)
-def create_genre(data: dict, session: Session = Depends(get_session)):
-    name = data.get("name", "").strip()
-    if not name:
-        raise HTTPException(400, "name is required")
+def create_genre(data: CatalogCreate, session: Session = Depends(get_session)):
+    name = data.name
     existing = session.exec(select(Genre).where(Genre.name == name)).first()
     if existing:
         raise HTTPException(409, f"Genre '{name}' already exists")
@@ -40,13 +39,13 @@ def create_genre(data: dict, session: Session = Depends(get_session)):
 
 
 @router.put("/{genre_id}")
-def update_genre(genre_id: int, data: dict, session: Session = Depends(get_session)):
+def update_genre(
+    genre_id: int, data: CatalogUpdate, session: Session = Depends(get_session)
+):
     genre = session.get(Genre, genre_id)
     if not genre:
         raise HTTPException(404, "Genre not found")
-    name = data.get("name", "").strip()
-    if not name:
-        raise HTTPException(400, "name is required")
+    name = data.name
     existing = session.exec(
         select(Genre).where(Genre.name == name, Genre.id != genre_id)
     ).first()

@@ -8,6 +8,7 @@ from sqlalchemy import or_
 
 from app.database import get_session
 from app.models import Game, GameGenreLink, Genre, Platform, StorageDevice
+from app.schemas import GameCreate, GameUpdate, BatchCreateRequest
 
 router = APIRouter(prefix="/api/games", tags=["games"])
 
@@ -87,6 +88,22 @@ def _game_to_dict(game: Game) -> dict:
         "updated_at": game.updated_at,
     }
 
+
+SORT_FIELDS = frozenset(
+    {
+        "title",
+        "interest_rating",
+        "score",
+        "gameplay_status",
+        "hltb_main",
+        "hltb_main_extra",
+        "hltb_full",
+        "playtime_seconds",
+        "coop_players",
+        "updated_at",
+        "created_at",
+    }
+)
 
 SORT_WHITELIST = {
     "title": Game.title,
@@ -191,6 +208,11 @@ def list_games(
 
     if sort:
         sort_fields = [s.strip() for s in sort.split(",") if s.strip()]
+        invalid = [
+            sf for sf in sort_fields if sf.split(":")[0].strip() not in SORT_FIELDS
+        ]
+        if invalid:
+            raise HTTPException(422, f"Invalid sort fields: {', '.join(invalid)}")
         order_cols = []
         for sf in sort_fields:
             parts = sf.split(":")
@@ -235,48 +257,38 @@ def get_game(game_id: str, session: Session = Depends(get_session)):
     return _game_to_dict(game)
 
 
-@router.post("", status_code=201)
-def create_game(data: dict, session: Session = Depends(get_session)):
-    title = data.get("title", "").strip()
-    if not title:
-        raise HTTPException(400, "title is required")
-    genres_in = data.get("genres", [])
-    if not genres_in:
-        raise HTTPException(400, "At least one genre is required")
-    platform_name = data.get("platform", "").strip()
-    if not platform_name:
-        raise HTTPException(400, "platform is required")
-
-    platform = _resolve_platform(session, platform_name)
-    storage_device = _resolve_storage_device(session, data.get("storage_device"))
-    genres = _resolve_genres(session, genres_in)
+def _create_single_game(session: Session, data: GameCreate) -> Game:
+    platform = _resolve_platform(session, data.platform)
+    storage_device = _resolve_storage_device(session, data.storage_device)
+    genres = _resolve_genres(session, data.genres)
 
     game_id = uuid.uuid4().hex[:12]
     now = datetime.now(timezone.utc).isoformat()
 
     game = Game(
         id=game_id,
-        title=title,
-        cover_url=data.get("cover_url"),
-        background_url=data.get("background_url"),
+        title=data.title,
+        playnite_id=data.playnite_id,
+        cover_url=data.cover_url,
+        background_url=data.background_url,
         platform_id=platform.id,
         storage_device_id=storage_device.id if storage_device else None,
-        gameplay_status=data.get("gameplay_status", "Backlog"),
-        interest_rating=data.get("interest_rating", 3),
-        replay_score=data.get("replay_score"),
-        score=data.get("score"),
-        must_test=data.get("must_test", False),
-        finish_hours=data.get("finish_hours"),
-        finish_date=data.get("finish_date"),
-        hltb_main=data.get("hltb_main", 0),
-        hltb_main_extra=data.get("hltb_main_extra", 0),
-        hltb_full=data.get("hltb_full", 0),
-        coop_players=data.get("coop_players", "1 Jogador"),
-        coop_type=Game.coop_type_str(coop_type_raw),
-        coop_screen_type=data.get("coop_screen_type", "Tela Inteira"),
-        input_recommendation=data.get("input_recommendation", "Controle"),
-        playtime_seconds=data.get("playtime_seconds", 0),
-        notes=data.get("notes"),
+        gameplay_status=data.gameplay_status,
+        interest_rating=data.interest_rating,
+        replay_score=data.replay_score,
+        score=data.score,
+        must_test=data.must_test,
+        finish_hours=data.finish_hours,
+        finish_date=data.finish_date,
+        hltb_main=data.hltb_main,
+        hltb_main_extra=data.hltb_main_extra,
+        hltb_full=data.hltb_full,
+        coop_players=data.coop_players,
+        coop_type=Game.coop_type_str(data.coop_type),
+        coop_screen_type=data.coop_screen_type,
+        input_recommendation=data.input_recommendation,
+        playtime_seconds=data.playtime_seconds,
+        notes=data.notes,
         created_at=now,
         updated_at=now,
     )
@@ -290,78 +302,173 @@ def create_game(data: dict, session: Session = Depends(get_session)):
     for genre in genres:
         session.add(GameGenreLink(game_id=game.id, genre_id=genre.id))
 
-    session.commit()
-    session.refresh(game)
+    return game
 
-    game = session.exec(
+
+def _update_game_from_create(session: Session, game: Game, data: GameCreate) -> Game:
+    platform = _resolve_platform(session, data.platform)
+    storage_device = _resolve_storage_device(session, data.storage_device)
+    genres = _resolve_genres(session, data.genres)
+
+    game.title = data.title
+    game.playnite_id = data.playnite_id
+    game.cover_url = data.cover_url
+    game.background_url = data.background_url
+    game.platform_id = platform.id
+    game.storage_device_id = storage_device.id if storage_device else None
+    game.gameplay_status = data.gameplay_status
+    game.interest_rating = data.interest_rating
+    game.replay_score = data.replay_score
+    game.score = data.score
+    game.must_test = data.must_test
+    game.finish_hours = data.finish_hours
+    game.finish_date = data.finish_date
+    game.hltb_main = data.hltb_main
+    game.hltb_main_extra = data.hltb_main_extra
+    game.hltb_full = data.hltb_full
+    game.coop_players = data.coop_players
+    game.coop_type = Game.coop_type_str(data.coop_type)
+    game.coop_screen_type = data.coop_screen_type
+    game.input_recommendation = data.input_recommendation
+    game.playtime_seconds = data.playtime_seconds
+    game.notes = data.notes
+    game.updated_at = datetime.now(timezone.utc).isoformat()
+
+    if game.gameplay_status == "Finalizado" and game.replay_score is None:
+        game.replay_score = 3
+
+    existing_links = session.exec(
+        select(GameGenreLink).where(GameGenreLink.game_id == game.id)
+    ).all()
+    for link in existing_links:
+        session.delete(link)
+    for genre in genres:
+        session.add(GameGenreLink(game_id=game.id, genre_id=genre.id))
+
+    return game
+
+
+def _reload_game(session: Session, game_id: str) -> Game:
+    return session.exec(
         select(Game)
         .options(
             selectinload(Game.platform),
             selectinload(Game.storage_device),
             selectinload(Game.genres),
         )
-        .where(Game.id == game.id)
+        .where(Game.id == game_id)
     ).first()
 
-    return _game_to_dict(game)
+
+@router.post("", status_code=201)
+def create_game(data: GameCreate, session: Session = Depends(get_session)):
+    game = _create_single_game(session, data)
+    session.commit()
+    session.refresh(game)
+    return _game_to_dict(_reload_game(session, game.id))
+
+
+@router.post("/batch", status_code=201)
+def upsert_games_batch(
+    data: BatchCreateRequest, session: Session = Depends(get_session)
+):
+    results = []
+    errors = []
+    for i, game_data in enumerate(data.games):
+        try:
+            existing = None
+            if game_data.playnite_id:
+                existing = session.exec(
+                    select(Game).where(Game.playnite_id == game_data.playnite_id)
+                ).first()
+
+            if existing:
+                game = _update_game_from_create(session, existing, game_data)
+                session.flush()
+                results.append(
+                    {
+                        "index": i,
+                        "id": game.id,
+                        "title": game.title,
+                        "action": "updated",
+                    }
+                )
+            else:
+                game = _create_single_game(session, game_data)
+                results.append(
+                    {
+                        "index": i,
+                        "id": game.id,
+                        "title": game.title,
+                        "action": "created",
+                    }
+                )
+        except Exception as e:
+            errors.append({"index": i, "title": game_data.title, "error": str(e)})
+            session.rollback()
+            raise HTTPException(
+                400,
+                f"Error at index {i} ('{game_data.title}'): {e}. "
+                f"{len(results)} games processed before failure were rolled back.",
+            )
+    session.commit()
+    return {"processed": len(results), "games": results, "errors": errors}
 
 
 @router.put("/{game_id}")
-def update_game(game_id: str, data: dict, session: Session = Depends(get_session)):
+def update_game(
+    game_id: str, data: GameUpdate, session: Session = Depends(get_session)
+):
     game = session.get(Game, game_id)
     if not game:
         raise HTTPException(404, "Game not found")
 
-    if "title" in data:
-        title = data["title"].strip()
-        if not title:
-            raise HTTPException(400, "title cannot be empty")
-        game.title = title
+    if data.title is not None:
+        game.title = data.title
 
-    if "platform" in data:
-        platform = _resolve_platform(session, data["platform"].strip())
+    if data.platform is not None:
+        platform = _resolve_platform(session, data.platform)
         game.platform_id = platform.id
 
-    if "storage_device" in data:
-        device = _resolve_storage_device(session, data["storage_device"])
+    if data.storage_device is not None:
+        device = _resolve_storage_device(session, data.storage_device)
         game.storage_device_id = device.id if device else None
 
-    if "genres" in data:
+    if data.genres is not None:
         existing_links = session.exec(
             select(GameGenreLink).where(GameGenreLink.game_id == game_id)
         ).all()
         for link in existing_links:
             session.delete(link)
-
-        genres = _resolve_genres(session, data["genres"])
+        genres = _resolve_genres(session, data.genres)
         for genre in genres:
             session.add(GameGenreLink(game_id=game.id, genre_id=genre.id))
 
-    scalar_fields = [
-        "cover_url",
-        "background_url",
-        "gameplay_status",
-        "interest_rating",
-        "replay_score",
-        "score",
-        "must_test",
-        "finish_hours",
-        "finish_date",
-        "hltb_main",
-        "hltb_main_extra",
-        "hltb_full",
-        "coop_players",
-        "coop_screen_type",
-        "input_recommendation",
-        "notes",
-        "playtime_seconds",
-    ]
-    for field in scalar_fields:
-        if field in data:
-            setattr(game, field, data[field])
+    scalar_fields = {
+        "cover_url": data.cover_url,
+        "background_url": data.background_url,
+        "gameplay_status": data.gameplay_status,
+        "interest_rating": data.interest_rating,
+        "replay_score": data.replay_score,
+        "score": data.score,
+        "must_test": data.must_test,
+        "finish_hours": data.finish_hours,
+        "finish_date": data.finish_date,
+        "hltb_main": data.hltb_main,
+        "hltb_main_extra": data.hltb_main_extra,
+        "hltb_full": data.hltb_full,
+        "coop_players": data.coop_players,
+        "coop_screen_type": data.coop_screen_type,
+        "input_recommendation": data.input_recommendation,
+        "notes": data.notes,
+        "playtime_seconds": data.playtime_seconds,
+    }
+    for field, value in scalar_fields.items():
+        if value is not None:
+            setattr(game, field, value)
 
-    if "coop_type" in data:
-        game.coop_type = Game.coop_type_str(data["coop_type"])
+    if data.coop_type is not None:
+        game.coop_type = Game.coop_type_str(data.coop_type)
 
     if game.gameplay_status == "Finalizado" and game.replay_score is None:
         game.replay_score = 3
@@ -370,17 +477,7 @@ def update_game(game_id: str, data: dict, session: Session = Depends(get_session
     session.add(game)
     session.commit()
 
-    game = session.exec(
-        select(Game)
-        .options(
-            selectinload(Game.platform),
-            selectinload(Game.storage_device),
-            selectinload(Game.genres),
-        )
-        .where(Game.id == game.id)
-    ).first()
-
-    return _game_to_dict(game)
+    return _game_to_dict(_reload_game(session, game.id))
 
 
 @router.delete("/{game_id}")

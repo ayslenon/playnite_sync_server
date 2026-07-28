@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 from sqlmodel import Session
 
@@ -10,13 +10,18 @@ router = APIRouter(prefix="/api/export", tags=["export"])
 
 @router.get("/xlsx")
 def export_xlsx(session: Session = Depends(get_session)):
-    output = export_games(session)
-    return StreamingResponse(
-        output,
-        media_type=(
-            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        ),
-        headers={
-            "Content-Disposition": ("attachment; filename=biblioteca_jogos.xlsx"),
-        },
-    )
+    try:
+        output = export_games(session)
+        content = output.getvalue()
+        return StreamingResponse(
+            iter([content]),
+            media_type=(
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+            ),
+            headers={
+                "Content-Disposition": ("attachment; filename=biblioteca_jogos.xlsx"),
+                "Content-Length": str(len(content)),
+            },
+        )
+    except Exception as e:
+        raise HTTPException(500, f"Failed to generate spreadsheet: {e}")

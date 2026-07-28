@@ -3,6 +3,7 @@ from sqlmodel import select, func, Session
 
 from app.database import get_session
 from app.models import StorageDevice, Game
+from app.schemas import CatalogCreate, CatalogUpdate
 
 router = APIRouter(prefix="/api/storage-devices", tags=["storage"])
 
@@ -27,10 +28,8 @@ def list_storage_devices(session: Session = Depends(get_session)):
 
 
 @router.post("", status_code=201)
-def create_storage_device(data: dict, session: Session = Depends(get_session)):
-    name = data.get("name", "").strip()
-    if not name:
-        raise HTTPException(400, "name is required")
+def create_storage_device(data: CatalogCreate, session: Session = Depends(get_session)):
+    name = data.name
     existing = session.exec(
         select(StorageDevice).where(StorageDevice.name == name)
     ).first()
@@ -45,14 +44,12 @@ def create_storage_device(data: dict, session: Session = Depends(get_session)):
 
 @router.put("/{device_id}")
 def update_storage_device(
-    device_id: int, data: dict, session: Session = Depends(get_session)
+    device_id: int, data: CatalogUpdate, session: Session = Depends(get_session)
 ):
     device = session.get(StorageDevice, device_id)
     if not device:
         raise HTTPException(404, "Storage device not found")
-    name = data.get("name", "").strip()
-    if not name:
-        raise HTTPException(400, "name is required")
+    name = data.name
     existing = session.exec(
         select(StorageDevice).where(
             StorageDevice.name == name, StorageDevice.id != device_id

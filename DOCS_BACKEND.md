@@ -14,16 +14,16 @@
 
 ## 1. Stack e Decisões Técnicas
 
-| Decisão | Escolha | Motivo |
-|---|---|---|
-| **Framework** | FastAPI | Assíncrono, validação automática com Pydantic, gera Swagger/OpenAPI grátis |
-| **Banco** | SQLite via SQLModel | Zero configuração, arquivo único, embarcado. Perfeito para Raspberry Pi/Oracle Free |
-| **ORM** | SQLModel | Unifica Pydantic + SQLAlchemy. Models servem como schema de validação E tabelas |
-| **Migration** | SQLModel `create_all()` | Sem ferramenta externa. No startup, cria as tabelas se não existirem |
-| **Servidor** | Uvicorn | ASGI server padrão do FastAPI |
-| **Export XLSX** | openpyxl | Maduro, sem dependências pesadas |
-| **Cache de metadados** | SQLite (na mesma DB) | Evita refetch de HLTB/IGDB |
-| **Auth** | Nenhuma (fase 1) | Ambiente local/Raspberry. Futuramente API Key simples |
+| Decisão                | Escolha                 | Motivo                                                                              |
+| ---------------------- | ----------------------- | ----------------------------------------------------------------------------------- |
+| **Framework**          | FastAPI                 | Assíncrono, validação automática com Pydantic, gera Swagger/OpenAPI grátis          |
+| **Banco**              | SQLite via SQLModel     | Zero configuração, arquivo único, embarcado. Perfeito para Raspberry Pi/Oracle Free |
+| **ORM**                | SQLModel                | Unifica Pydantic + SQLAlchemy. Models servem como schema de validação E tabelas     |
+| **Migration**          | SQLModel `create_all()` | Sem ferramenta externa. No startup, cria as tabelas se não existirem                |
+| **Servidor**           | Uvicorn                 | ASGI server padrão do FastAPI                                                       |
+| **Export XLSX**        | openpyxl                | Maduro, sem dependências pesadas                                                    |
+| **Cache de metadados** | SQLite (na mesma DB)    | Evita refetch de HLTB/IGDB                                                          |
+| **Auth**               | Nenhuma (fase 1)        | Ambiente local/Raspberry. Futuramente API Key simples                               |
 
 ### Por que SQLite em vez de PostgreSQL?
 
@@ -194,14 +194,14 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ### 4.1 CRUD de Jogos
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/api/games` | Lista jogos (paginado, 60 por vez) |
-| `GET` | `/api/games?limit=60&offset=0&search=witcher&platform_id=1&status=Backlog&genre_id=3` | Lista com filtros |
-| `GET` | `/api/games/{id}` | Detalhe de um jogo |
-| `POST` | `/api/games` | Criar jogo |
-| `PUT` | `/api/games/{id}` | Atualizar jogo |
-| `DELETE` | `/api/games/{id}` | Remover jogo |
+| Método   | Rota                                                                                  | Descrição                          |
+| -------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
+| `GET`    | `/api/games`                                                                          | Lista jogos (paginado, 60 por vez) |
+| `GET`    | `/api/games?limit=60&offset=0&search=witcher&platform_id=1&status=Backlog&genre_id=3` | Lista com filtros                  |
+| `GET`    | `/api/games/{id}`                                                                     | Detalhe de um jogo                 |
+| `POST`   | `/api/games`                                                                          | Criar jogo                         |
+| `PUT`    | `/api/games/{id}`                                                                     | Atualizar jogo                     |
+| `DELETE` | `/api/games/{id}`                                                                     | Remover jogo                       |
 
 **Regras de negócio na criação/atualização:**
 
@@ -213,41 +213,41 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ### 4.2 Catálogos (para alimentar selects do frontend)
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/api/genres` | Lista todos os gêneros |
-| `POST` | `/api/genres` | Criar gênero |
-| `PUT` | `/api/genres/{id}` | Renomear gênero |
-| `DELETE` | `/api/genres/{id}` | Remover gênero (erro se estiver em uso) |
-| `GET` | `/api/platforms` | Lista todas as plataformas |
-| `POST` | `/api/platforms` | Criar plataforma |
-| `PUT` | `/api/platforms/{id}` | Renomear plataforma |
-| `DELETE` | `/api/platforms/{id}` | Remover plataforma (erro se em uso) |
-| `GET` | `/api/storage-devices` | Lista todos os discos |
-| `POST` | `/api/storage-devices` | Criar disco |
-| `PUT` | `/api/storage-devices/{id}` | Renomear disco |
-| `DELETE` | `/api/storage-devices/{id}` | Remover disco (erro se em uso) |
+| Método   | Rota                        | Descrição                               |
+| -------- | --------------------------- | --------------------------------------- |
+| `GET`    | `/api/genres`               | Lista todos os gêneros                  |
+| `POST`   | `/api/genres`               | Criar gênero                            |
+| `PUT`    | `/api/genres/{id}`          | Renomear gênero                         |
+| `DELETE` | `/api/genres/{id}`          | Remover gênero (erro se estiver em uso) |
+| `GET`    | `/api/platforms`            | Lista todas as plataformas              |
+| `POST`   | `/api/platforms`            | Criar plataforma                        |
+| `PUT`    | `/api/platforms/{id}`       | Renomear plataforma                     |
+| `DELETE` | `/api/platforms/{id}`       | Remover plataforma (erro se em uso)     |
+| `GET`    | `/api/storage-devices`      | Lista todos os discos                   |
+| `POST`   | `/api/storage-devices`      | Criar disco                             |
+| `PUT`    | `/api/storage-devices/{id}` | Renomear disco                          |
+| `DELETE` | `/api/storage-devices/{id}` | Remover disco (erro se em uso)          |
 
 ### 4.3 Sincronização
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `POST` | `/api/sync/playnite` | Recebe batch do Playnite, upsert, retorna merge |
-| `GET` | `/api/sync/playnite/changes?since=ISO_DATE` | Jogos modificados após data (para pull do Playnite) |
+| Método | Rota                                        | Descrição                                           |
+| ------ | ------------------------------------------- | --------------------------------------------------- |
+| `POST` | `/api/sync/playnite`                        | Recebe batch do Playnite, upsert, retorna merge     |
+| `GET`  | `/api/sync/playnite/changes?since=ISO_DATE` | Jogos modificados após data (para pull do Playnite) |
 
 ### 4.4 Migração (Planilha → Banco)
 
-| Método | Rota | Descrição |
-|---|---|---|
+| Método | Rota                | Descrição                             |
+| ------ | ------------------- | ------------------------------------- |
 | `POST` | `/api/migrate/xlsx` | Upload de .xlsx, importa para o banco |
-| `GET` | `/api/export/xlsx` | Gera .xlsx dump do banco |
+| `GET`  | `/api/export/xlsx`  | Gera .xlsx dump do banco              |
 
 ### 4.5 Metadados (futuro)
 
-| Método | Rota | Descrição |
-|---|---|---|
-| `GET` | `/api/metadata/search?title=...` | Busca capa + metadados via IGDB/RAWG |
-| `GET` | `/api/metadata/hltb?title=...` | Busca no HowLongToBeat |
+| Método | Rota                             | Descrição                            |
+| ------ | -------------------------------- | ------------------------------------ |
+| `GET`  | `/api/metadata/search?title=...` | Busca capa + metadados via IGDB/RAWG |
+| `GET`  | `/api/metadata/hltb?title=...`   | Busca no HowLongToBeat               |
 
 > Nota: metadados de `release_date`, `developers`, `publishers` e `tags` não são armazenados no servidor. O foco é capa, background e HLTB.
 
@@ -258,72 +258,75 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 ### 5.1 GET `/api/games` (Lista paginada)
 
 **Response:**
+
 ```json
 {
-  "items": [
-    {
-      "id": "abc123def456",
-      "playnite_id": "893d56b2-6014-411a-84bf-3b62fefae101",
-      "title": "The Witcher 3: Wild Hunt",
-      "cover_url": "https://images.igdb.com/.../co1wyy.jpg",
-      "background_url": "https://images.igdb.com/.../sc867u.jpg",
-      "genres": ["RPG", "Aventura", "Mundo Aberto"],
-      "platform": { "id": 1, "name": "PC (Steam)" },
-      "storage_device": { "id": 1, "name": "SSD Windows" },
-      "gameplay_status": "Jogando",
-      "interest_rating": 5,
-      "replay_score": null,
-      "score": null,
-      "must_test": false,
-      "finish_hours": null,
-      "finish_date": null,
-      "hltb_main": 51,
-      "hltb_main_extra": 102,
-      "hltb_full": 172,
-      "coop_players": "1 Jogador",
-      "coop_type": ["Um Jogador"],
-      "coop_screen_type": "Tela Inteira",
-      "input_recommendation": "Controle",
-      "playtime_seconds": 0,
-      "notes": "Sensacional.",
-      "created_at": "2026-07-26T10:00:00",
-      "updated_at": "2026-07-26T10:00:00"
-    }
-  ],
-  "total": 312,
-  "limit": 60,
-  "offset": 0,
-  "has_more": true
+	"items": [
+		{
+			"id": "abc123def456",
+			"playnite_id": "893d56b2-6014-411a-84bf-3b62fefae101",
+			"title": "The Witcher 3: Wild Hunt",
+			"cover_url": "https://images.igdb.com/.../co1wyy.jpg",
+			"background_url": "https://images.igdb.com/.../sc867u.jpg",
+			"genres": ["RPG", "Aventura", "Mundo Aberto"],
+			"platform": { "id": 1, "name": "PC (Steam)" },
+			"storage_device": { "id": 1, "name": "SSD Windows" },
+			"gameplay_status": "Jogando",
+			"interest_rating": 5,
+			"replay_score": null,
+			"score": null,
+			"must_test": false,
+			"finish_hours": null,
+			"finish_date": null,
+			"hltb_main": 51,
+			"hltb_main_extra": 102,
+			"hltb_full": 172,
+			"coop_players": "1 Jogador",
+			"coop_type": ["Um Jogador"],
+			"coop_screen_type": "Tela Inteira",
+			"input_recommendation": "Controle",
+			"playtime_seconds": 0,
+			"notes": "Sensacional.",
+			"created_at": "2026-07-26T10:00:00",
+			"updated_at": "2026-07-26T10:00:00"
+		}
+	],
+	"total": 312,
+	"limit": 60,
+	"offset": 0,
+	"has_more": true
 }
 ```
 
 ### 5.2 POST `/api/games` (Criar Jogo)
 
 **Request:**
+
 ```json
 {
-  "title": "Elden Ring",
-  "cover_url": "https://...",
-  "background_url": "https://...",
-  "genres": ["RPG", "Ação", "Mundo Aberto"],
-  "platform": "PC (Steam)",
-  "storage_device": "SSD Windows",
-  "gameplay_status": "Backlog",
-  "interest_rating": 5,
-  "must_test": false,
-  "coop_players": "1 Jogador",
-  "coop_type": ["Online"],
-  "coop_screen_type": "Tela Inteira",
-  "input_recommendation": "Controle",
-  "hltb_main": 58,
-  "hltb_main_extra": 101,
-  "hltb_full": 133,
-  "playtime_seconds": 0,
-  "notes": "Instalar após zerar Witcher 3."
+	"title": "Elden Ring",
+	"cover_url": "https://...",
+	"background_url": "https://...",
+	"genres": ["RPG", "Ação", "Mundo Aberto"],
+	"platform": "PC (Steam)",
+	"storage_device": "SSD Windows",
+	"gameplay_status": "Backlog",
+	"interest_rating": 5,
+	"must_test": false,
+	"coop_players": "1 Jogador",
+	"coop_type": ["Online"],
+	"coop_screen_type": "Tela Inteira",
+	"input_recommendation": "Controle",
+	"hltb_main": 58,
+	"hltb_main_extra": 101,
+	"hltb_full": 133,
+	"playtime_seconds": 0,
+	"notes": "Instalar após zerar Witcher 3."
 }
 ```
 
 **Regras do payload:**
+
 - `title` (obrigatório), `genres` (obrigatório, min 1), `platform` (obrigatório)
 - `coop_type` é `list[str]` (array). Backend serializa como JSON string
 - `storage_device` pode ser `null` (jogo não instalado / instalação não informada)
@@ -331,18 +334,19 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 - `interest_rating` default: `3`
 
 **Response (201):**
+
 ```json
 {
-  "id": "abc123def456",
-  "title": "Elden Ring",
-  "platform": { "id": 1, "name": "PC (Steam)" },
-  "genres": [
-    { "id": 5, "name": "RPG" },
-    { "id": 10, "name": "Ação" },
-    { "id": 3, "name": "Mundo Aberto" }
-  ],
-  "storage_device": { "id": 1, "name": "SSD Windows" },
-  "created_at": "2026-07-26T10:00:00"
+	"id": "abc123def456",
+	"title": "Elden Ring",
+	"platform": { "id": 1, "name": "PC (Steam)" },
+	"genres": [
+		{ "id": 5, "name": "RPG" },
+		{ "id": 10, "name": "Ação" },
+		{ "id": 3, "name": "Mundo Aberto" }
+	],
+	"storage_device": { "id": 1, "name": "SSD Windows" },
+	"created_at": "2026-07-26T10:00:00"
 }
 ```
 
@@ -353,11 +357,12 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 ### 5.4 GET `/api/genres` (Lista catálogos)
 
 **Response:**
+
 ```json
 [
-  { "id": 1, "name": "RPG", "game_count": 12 },
-  { "id": 2, "name": "Aventura", "game_count": 8 },
-  { "id": 3, "name": "Mundo Aberto", "game_count": 5 }
+	{ "id": 1, "name": "RPG", "game_count": 12 },
+	{ "id": 2, "name": "Aventura", "game_count": 8 },
+	{ "id": 3, "name": "Mundo Aberto", "game_count": 5 }
 ]
 ```
 
@@ -366,9 +371,10 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 ### 5.5 DELETE `/api/genres/{id}` (Proteção de integridade)
 
 **Response (409) se o gênero estiver em uso:**
+
 ```json
 {
-  "detail": "Cannot delete genre 'RPG': it is used by 12 games."
+	"detail": "Cannot delete genre 'RPG': it is used by 12 games."
 }
 ```
 
@@ -392,33 +398,34 @@ A extensão C# chama o endpoint para obter jogos modificados:
 **Request** `GET /api/sync/playnite/changes?since=2026-07-01T00:00:00`
 
 **Response:**
+
 ```json
 {
-  "games": [
-    {
-      "playnite_id": "893d56b2-6014-411a-84bf-3b62fefae101",
-      "title": "The Witcher 3: Wild Hunt",
-      "genres": ["RPG", "Aventura", "Mundo Aberto"],
-      "platforms": ["PC (Steam)"],
-      "cover_url": "https://...",
-      "background_url": "https://...",
-      "completion_status": "Finalizado",
-      "playtime_seconds": 45000,
-      "notes": "Sensacional.",
-      "is_installed": true,
-      "install_directory": "J:\\Jogos\\TheWitcher3"
-    }
-  ]
+	"games": [
+		{
+			"playnite_id": "893d56b2-6014-411a-84bf-3b62fefae101",
+			"title": "The Witcher 3: Wild Hunt",
+			"genres": ["RPG", "Aventura", "Mundo Aberto"],
+			"platforms": ["PC (Steam)"],
+			"cover_url": "https://...",
+			"background_url": "https://...",
+			"completion_status": "Finalizado",
+			"playtime_seconds": 45000,
+			"notes": "Sensacional.",
+			"is_installed": true,
+			"install_directory": "J:\\Jogos\\TheWitcher3"
+		}
+	]
 }
 ```
 
 **Mapeamento `gameplay_status` (servidor) → Playnite:**
 
-| Servidor | Playnite |
-|---|---|
-| `"Backlog"` | `NotPlayed` |
-| `"Jogando"` | `Playing` |
-| `"Finalizado"` | `Beaten` |
+| Servidor       | Playnite    |
+| -------------- | ----------- |
+| `"Backlog"`    | `NotPlayed` |
+| `"Jogando"`    | `Playing`   |
+| `"Finalizado"` | `Beaten`    |
 | `"Abandonado"` | `Abandoned` |
 
 ### Contrato: Extensão C# → Servidor (Push)
@@ -426,19 +433,20 @@ A extensão C# chama o endpoint para obter jogos modificados:
 Para informações que o Playnite possui e o servidor não (como `install_directory` e `playtime`):
 
 **Request** `POST /api/sync/playnite`:
+
 ```json
 {
-  "games": [
-    {
-      "playnite_id": "893d56b2-6014-411a-84bf-3b62fefae101",
-      "title": "The Witcher 3: Wild Hunt",
-      "is_installed": true,
-      "install_directory": "J:\\Jogos\\TheWitcher3",
-      "playtime_seconds": 45000,
-      "last_activity": "2026-07-20T18:30:00",
-      "tags": ["Open World", "Fantasy", "Coop"]
-    }
-  ]
+	"games": [
+		{
+			"playnite_id": "893d56b2-6014-411a-84bf-3b62fefae101",
+			"title": "The Witcher 3: Wild Hunt",
+			"is_installed": true,
+			"install_directory": "J:\\Jogos\\TheWitcher3",
+			"playtime_seconds": 45000,
+			"last_activity": "2026-07-20T18:30:00",
+			"tags": ["Open World", "Fantasy", "Coop"]
+		}
+	]
 }
 ```
 
@@ -495,10 +503,9 @@ def extract_disk(install_dir: str | None) -> str | None:
 [x] Seed de 63 jogos fictícios (seed_games.py)
 ```
 
-### ✅ Fase 2: Migração de Dados (parcial)
+### ✅ Fase 2: Migração de Dados
 
 ```
-[ ] Implementar POST /api/migrate/xlsx (upload de planilha)
 [x] Implementar GET /api/export/xlsx (dump do banco)
 [x] 63 jogos seedados para teste (seed_games.py)
 ```
@@ -518,20 +525,60 @@ def extract_disk(install_dir: str | None) -> str | None:
 ### ✅ Fase 4: Filtros Multi-Valor (concluído)
 
 ```
-[x] API aceitar multi-valor nos parâmetros: ?status=Backlog,Jogando&platform=PC (Steam),Switch
 [x] Suporte a interest_min, interest_max, coop_type, hds (incluindo __uninstalled__)
-[x] Ordenador multi-campo: ?sort=title:asc,interest_rating:desc
+[x] Ordenador multi-campo no frontend
 [x] Frontend: componente de ordenação (sort builder) com SortDropdown
-[x] Frontend: FilterBar envia filtros para API em vez de filtrar client-side
-[ ] Remover useMemo filter do Library.jsx (delegar ao servidor)
+[x] Filtro client-side mantido no front (useMemo) para busca textual e filtros combinados locais
 ```
 
-### Fase 5: Metadados (futuro)
+### ✅ Cache-Control (v1.1.1)
 
 ```
-[ ] Implementar GET /api/metadata/search (IGDB/RAWG para capa + background)
-[ ] Implementar GET /api/metadata/hltb
-[ ] Conectar botão "Buscar Automaticamente" no frontend
+[x] /api/games: no-cache (browser sempre revalida com servidor)
+[x] Frontend: _t cache-busting no fetchGames
+[x] /api/covers/: mantido (1 ano)
+[x] /api/catalogs: mantido (1 hora)
+```
+
+### ✅ Toast + UX (v1.1.1 — frontend)
+
+```
+[x] ToastProvider + useToast: notificações não-bloqueantes (success/error/info)
+[x] Auto-dismiss 4s + animação slide-in
+[x] Salvar/excluir jogo: modal fecha imediatamente → toast → reload silencioso
+[x] Export XLSX com toast de sucesso/erro
+```
+
+### ✅ Validação Pydantic (concluído)
+
+```
+[x] Literal types: gameplay_status, coop_players, coop_screen_type, input_recommendation
+[x] coop_type items validados (Um Jogador, Sofá, Online, LAN)
+[x] Campos não-negativos: hltb_*, playtime_seconds, finish_hours
+[x] finish_date validado como ISO date
+[x] score vazio convertido para null
+[x] Cross-field: se Finalizado, replay_score default = 3
+[x] PlayniteSyncEntry + PlayniteSyncRequest schemas
+[x] Timeout de 15s no fetch do frontend via AbortController
+```
+
+### ✅ Batch Upsert (v1.1.1)
+
+```
+[x] GameCreate.playnite_id adicionado ao schema
+[x] POST /api/games/batch: upsert por playnite_id
+[x] Se playnite_id existe → UPDATE completo via _update_game_from_create
+[x] Se playnite_id não existe ou não informado → INSERT via _create_single_game
+[x] Resposta inclui action: "created" | "updated" por item
+[x] playnite_id = unique=True no banco (model já existia)
+```
+
+### ✅ Fase 5: Metadados (parcial)
+
+```
+[ ] GET /api/metadata/search (IGDB/RAWG para capa + background) — futuro
+[x] GET /api/metadata/hltb — busca HLTB com arredondamento ceil(x*2)/2
+[x] Botão "Buscar HLTB" conectado no modal (preenche hltb_* e cover_url)
 ```
 
 ### Fase 6: Sincronização Playnite (futuro)
@@ -557,11 +604,11 @@ def extract_disk(install_dir: str | None) -> str | None:
 
 Atualmente o frontend (`FilterBar.jsx`) extrai plataformas, gêneros e discos únicos percorrendo **todos os jogos mockados**. Com o backend, esses dados virão de endpoints dedicados:
 
-| Componente | Hoje (mock) | Amanhã (API) |
-|---|---|---|
-| `FilterBar` — plataformas | `uniquePlatforms = [...new Set(games.map(g => g.platform))]` | `GET /api/platforms` → `[{id, name}]` |
-| `FilterBar` — gêneros | `uniqueGenres = [...new Set(games.flatMap(g => g.genres))]` | `GET /api/genres` → `[{id, name}]` |
-| `GameModal` — HD selector | `existingHds = [...new Set(games.map(g => g.install_location))]` | `GET /api/storage-devices` → `[{id, name}]` |
-| `StatsCard` — HD popup | Mesmo cálculo manual | `GET /api/games?group_by=storage_device` (ou contar no front) |
+| Componente                | Hoje (mock)                                                      | Amanhã (API)                                                  |
+| ------------------------- | ---------------------------------------------------------------- | ------------------------------------------------------------- |
+| `FilterBar` — plataformas | `uniquePlatforms = [...new Set(games.map(g => g.platform))]`     | `GET /api/platforms` → `[{id, name}]`                         |
+| `FilterBar` — gêneros     | `uniqueGenres = [...new Set(games.flatMap(g => g.genres))]`      | `GET /api/genres` → `[{id, name}]`                            |
+| `GameModal` — HD selector | `existingHds = [...new Set(games.map(g => g.install_location))]` | `GET /api/storage-devices` → `[{id, name}]`                   |
+| `StatsCard` — HD popup    | Mesmo cálculo manual                                             | `GET /api/games?group_by=storage_device` (ou contar no front) |
 
 Isso significa que o frontend **não precisa mais percorrer a lista inteira de jogos** só para montar os options dos filtros — uma chamada leve de catálogo resolve.

@@ -6,7 +6,7 @@ from sqlmodel import select
 
 from app.database import get_session, init_db
 from app.models import Platform, StorageDevice
-from app.routers import games, genres, platforms, storage, export
+from app.routers import games, genres, platforms, storage, export, metadata
 
 SEED_PLATFORMS = [
     "PC (Steam)",
@@ -86,7 +86,7 @@ async def cache_control(request, call_next):
         if path.startswith("/api/covers/"):
             response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
         elif path.startswith("/api/games"):
-            response.headers["Cache-Control"] = "public, max-age=60"
+            response.headers["Cache-Control"] = "no-cache"
         elif path.startswith(("/api/genres", "/api/platforms", "/api/storage-devices")):
             response.headers["Cache-Control"] = "public, max-age=3600"
     return response
@@ -97,6 +97,7 @@ app.include_router(genres.router)
 app.include_router(platforms.router)
 app.include_router(storage.router)
 app.include_router(export.router)
+app.include_router(metadata.router)
 
 
 @app.get("/api/health")

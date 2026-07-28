@@ -91,6 +91,18 @@ Com o servidor rodando, acesse:
 |--------|------|-----------|
 | `GET` | `/api/export/xlsx` | Exportar planilha .xlsx |
 | `GET` | `/api/health` | Health check |
+| `GET` | `/api/metadata/hltb?title=` | Busca HLTB (HowLongToBeat) com arredondamento |
+
+#### Sincronização
+
+| Método | Rota | Descrição |
+|--------|------|-----------|
+| `POST` | `/api/games/batch` | Upsert em lote via JSON. Se `playnite_id` existir, atualiza; se não, cria |
+
+**Regras do batch upsert:**
+- `playnite_id` é opcional — se omitido, sempre cria novo registro
+- Se `playnite_id` for informado e já existir no banco, todos os campos são sobrescritos
+- Resposta inclui `action: "created" | "updated"` por item
 
 ## Testar com curl
 
@@ -154,8 +166,10 @@ server/
 │   │   ├── genres.py         # CRUD gêneros
 │   │   ├── platforms.py      # CRUD plataformas
 │   │   ├── storage.py        # CRUD discos
-│   │   └── export.py         # Export XLSX
-│   ├── services/             # (futuro: lógica de sync, metadados)
+│   │   ├── export.py         # Export XLSX
+│   │   └── metadata.py       # GET /api/metadata/hltb
+│   ├── services/
+│   │   └── hltb.py           # Busca HLTB + arredondamento
 │   └── utils/
 │       └── xlsx.py           # Geração de planilha .xlsx
 ├── requirements.txt

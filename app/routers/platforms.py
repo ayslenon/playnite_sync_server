@@ -3,6 +3,7 @@ from sqlmodel import select, func, Session
 
 from app.database import get_session
 from app.models import Platform, Game
+from app.schemas import CatalogCreate, CatalogUpdate
 
 router = APIRouter(prefix="/api/platforms", tags=["platforms"])
 
@@ -23,10 +24,8 @@ def list_platforms(session: Session = Depends(get_session)):
 
 
 @router.post("", status_code=201)
-def create_platform(data: dict, session: Session = Depends(get_session)):
-    name = data.get("name", "").strip()
-    if not name:
-        raise HTTPException(400, "name is required")
+def create_platform(data: CatalogCreate, session: Session = Depends(get_session)):
+    name = data.name
     existing = session.exec(select(Platform).where(Platform.name == name)).first()
     if existing:
         raise HTTPException(409, f"Platform '{name}' already exists")
@@ -39,14 +38,12 @@ def create_platform(data: dict, session: Session = Depends(get_session)):
 
 @router.put("/{platform_id}")
 def update_platform(
-    platform_id: int, data: dict, session: Session = Depends(get_session)
+    platform_id: int, data: CatalogUpdate, session: Session = Depends(get_session)
 ):
     platform = session.get(Platform, platform_id)
     if not platform:
         raise HTTPException(404, "Platform not found")
-    name = data.get("name", "").strip()
-    if not name:
-        raise HTTPException(400, "name is required")
+    name = data.name
     existing = session.exec(
         select(Platform).where(Platform.name == name, Platform.id != platform_id)
     ).first()
