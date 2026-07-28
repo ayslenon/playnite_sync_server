@@ -4,11 +4,12 @@
 
 1. [Stack e Decisões Técnicas](#1-stack-e-decisões-técnicas)
 2. [Estrutura de Pastas](#2-estrutura-de-pastas)
-3. [Schema do Banco de Dados](#3-schema-do-banco-de-dados)
-4. [Endpoints da API](#4-endpoints-da-api)
-5. [Contratos JSON](#5-contratos-json)
-6. [Fluxo de Sincronização Playnite](#6-fluxo-de-sincronização-playnite)
-7. [Sequência de Implementação](#7-sequência-de-implementação)
+3. [Arquitetura](#3-arquitetura)
+4. [Schema do Banco de Dados](#4-schema-do-banco-de-dados)
+5. [Endpoints da API](#5-endpoints-da-api)
+6. [Contratos JSON](#6-contratos-json)
+7. [Fluxo de Sincronização Playnite](#7-fluxo-de-sincronização-playnite)
+8. [Sequência de Implementação](#8-sequência-de-implementação)
 
 ---
 
@@ -74,7 +75,69 @@ server/
 
 ---
 
-## 3. Schema do Banco de Dados
+## 3. Arquitetura
+
+### Camadas
+
+```
+┌─────────────────────────────────────────────┐
+│  Routers (games.py, sync.py, genres.py ...) │  ← HTTP, validação, serialização
+├─────────────────────────────────────────────┤
+│  Services (hltb.py)                         │  ← Lógica externa (HLTB API)
+├─────────────────────────────────────────────┤
+│  Models (Game, Platform, Genre ...)         │  ← SQLModel: tabelas + relacionamentos
+├─────────────────────────────────────────────┤
+│  Database (SQLite via SQLAlchemy)           │  ← game_library.db
+└─────────────────────────────────────────────┘
+```
+
+### Fluxo de dados principal
+
+```
+Playnite (C# extension, Windows)
+    │ POST /api/sync/playnite
+    ▼
+FastAPI → SQLite (game_library.db)
+    │ GET /api/games
+    ▼
+Dashboard (React) → usuário
+```
+
+### Diagrama de dependências entre módulos
+
+```
+main.py
+  ├── config.py          ← pydantic-settings (.env)
+  ├── database.py        ← engine SQLite
+  ├── models/__init__.py
+  │   ├── game.py        ← FK → platform, storage_device, genre (via GameGenreLink)
+  │   ├── genre.py
+  │   ├── platform.py
+  │   └── storage_device.py
+  ├── schemas.py         ← Pydantic: GameCreate, PlayniteGame, validações
+  ├── routers/
+  │   ├── games.py       ← CRUD + batch upsert; usa schemas, models, database
+  │   ├── sync.py        ← POST /api/sync/playnite; usa schemas, models, games._helpers
+  │   ├── export.py      ← usa utils/xlsx.py
+  │   ├── metadata.py    ← usa services/hltb.py
+  │   └── genres.py / platforms.py / storage.py ← CRUD catálogos
+  ├── services/
+  │   └── hltb.py        ← howlongtobeatpy
+  └── utils/
+      └── xlsx.py        ← openpyxl
+```
+
+### Padrões de código
+
+- **Find-or-create**: plataformas, gêneros e discos são auto-criados se não existirem ao criar/editar jogos
+- **JSON-in-Text**: `coop_type` armazenado como JSON string em coluna `Text` com helpers `coop_type_list()` / `coop_type_str()`
+- **Timestamps como string ISO 8601**: `created_at` e `updated_at` são strings (não `datetime`), ordenáveis lexicograficamente
+- **Eager loading via `selectinload`**: todas as queries de listagem carregam relacionamentos (platform, storage_device, genres)
+- **Português**: todos os valores de domínio (status, coop, input) em português
+
+---
+
+## 4. Schema do Banco de Dados
 
 ### Tabela: `games`
 
@@ -192,7 +255,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ---
 
-## 4. Endpoints da API
+## 5. Endpoints da API
 
 ### 4.1 CRUD de Jogos
 
@@ -256,7 +319,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ---
 
-## 5. Contratos JSON
+## 6. Contratos JSON
 
 ### 5.1 GET `/api/games` (Lista paginada)
 
@@ -357,7 +420,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ### 5.3 POST `/api/sync/playnite` (Batch do Playnite)
 
-**Request** — vide seção 6 abaixo.
+**Request** — vide [seção 7](#7-fluxo-de-sincronização-playnite).
 
 ### 5.4 GET `/api/genres` (Lista catálogos)
 
@@ -385,7 +448,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ---
 
-## 6. Fluxo de Sincronização Playnite
+## 7. Fluxo de Sincronização Playnite
 
 ### Premissas
 
@@ -553,7 +616,7 @@ def extract_disk(install_dir: str | None) -> str | None:
 
 ---
 
-## 7. Sequência de Implementação
+## 8. Sequência de Implementação
 
 ### ✅ Fase 1: Core do Backend (concluído)
 
@@ -670,6 +733,19 @@ def extract_disk(install_dir: str | None) -> str | None:
 [ ] Configurar Cloudflare Tunnel (ou similar)
 [ ] Fazer build do frontend e servir via nginx/caddy
 [ ] Configurar cron de backup do .db e export .xlsx
+```
+
+### ✅ v1.2.1
+
+```
+[x] COVERS_DIR corrigido de ./playnite_covers para ./app/files
+[x] Cobertura real de capas: 648 diretórios de covers encontrados em app/files/
+[x] PLATFORM_MAP: adicionadas chaves Nintendo Game Boy Advance, Nintendo SNES,
+    Sony PlayStation, Sony PlayStation 2, Sony PlayStation Portable, macOS
+[x] COMPLETION_MAP: adicionadas entradas em português
+[x] Gênero "Outro" não é mais atribuído automaticamente (sync usa [] vazio)
+[x] GameCreate.genres sem min_length obrigatório
+[x] Docs atualizados (.env.example, README.md, DOCS_BACKEND.md)
 ```
 
 ---
