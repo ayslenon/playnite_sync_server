@@ -14,6 +14,7 @@ from app.routers.games import (
     _resolve_genres,
 )
 from app.schemas import GameCreate, PlayniteSyncPayload
+from app.utils.playnite_assets import playnite_asset_url
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
 
@@ -28,6 +29,7 @@ SOURCE_MAP = {
 PLATFORM_MAP = {
     "pc": "PC",
     "windows": "PC",
+    "macos": "PC",
     "nintendo switch": "Switch",
     "switch": "Switch",
     "nintendo 3ds": "3DS",
@@ -35,6 +37,7 @@ PLATFORM_MAP = {
     "nintendo ds": "DS",
     "ds": "DS",
     "game boy advance": "GBA",
+    "nintendo game boy advance": "GBA",
     "gba": "GBA",
     "nintendo 64": "N64",
     "n64": "N64",
@@ -42,22 +45,29 @@ PLATFORM_MAP = {
     "gamecube": "GameCube",
     "super nintendo": "SNES",
     "super nes": "SNES",
+    "nintendo snes": "SNES",
     "snes": "SNES",
     "nintendo wii": "Wii",
     "wii": "Wii",
     "playstation 1": "PS1",
     "playstation": "PS1",
+    "sony playstation": "PS1",
     "ps1": "PS1",
     "playstation 2": "PS2",
+    "sony playstation 2": "PS2",
     "ps2": "PS2",
     "playstation portable": "PSP",
+    "sony playstation portable": "PSP",
     "psp": "PSP",
 }
 
 COMPLETION_MAP = {
     "playing": "Jogando",
+    "jogando": "Jogando",
     "completed": "Finalizado",
+    "finalizado": "Finalizado",
     "abandoned": "Abandonado",
+    "abandonado": "Abandonado",
     "backlog": "Backlog",
 }
 
@@ -214,21 +224,15 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
         coop_players = tag_players
     input_rec, coop_screen = _map_features(item.Features)
 
-    cover_url = None
-    background_url = None
-    if item.CoverImage and item.Id:
-        fn = item.CoverImage.replace("\\", "/").split("/")[-1]
-        cover_url = f"/api/covers/playnite/{item.Id}/{fn}"
-    if item.BackgroundImage and item.Id:
-        fn = item.BackgroundImage.replace("\\", "/").split("/")[-1]
-        background_url = f"/api/covers/playnite/{item.Id}/{fn}"
+    cover_url = playnite_asset_url(item.Id, item.CoverImage)
+    background_url = playnite_asset_url(item.Id, item.BackgroundImage)
 
     return GameCreate(
         title=item.Name,
         playnite_id=item.Id,
         cover_url=cover_url,
         background_url=background_url,
-        genres=item.Genres or ["Outro"],
+        genres=item.Genres if item.Genres else [],
         platform=platform_name,
         storage_device=storage_name,
         gameplay_status=status,

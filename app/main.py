@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from sqlmodel import select
 
 from app.config import settings
@@ -69,7 +70,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(
     title="Game Library API",
-    version="1.0.0",
+    version="1.3.0",
     lifespan=lifespan,
 )
 
@@ -115,3 +116,13 @@ def serve_playnite_cover(playnite_id: str, filename: str):
 @app.get("/api/health")
 def health():
     return {"status": "ok"}
+
+
+# A dashboard build is optional during API development. In normal operation,
+# the generated React files are served by the same process and port as the API.
+if os.path.isdir(settings.frontend_dist):
+    app.mount(
+        "/",
+        StaticFiles(directory=settings.frontend_dist, html=True),
+        name="frontend",
+    )

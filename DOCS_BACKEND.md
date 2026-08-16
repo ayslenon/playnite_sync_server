@@ -1,14 +1,15 @@
-# Game Library — Backend (FastAPI + SQLite)
+# Game Library — Backend v1.3.0 (FastAPI + SQLite)
 
 ## Índice
 
 1. [Stack e Decisões Técnicas](#1-stack-e-decisões-técnicas)
 2. [Estrutura de Pastas](#2-estrutura-de-pastas)
-3. [Schema do Banco de Dados](#3-schema-do-banco-de-dados)
-4. [Endpoints da API](#4-endpoints-da-api)
-5. [Contratos JSON](#5-contratos-json)
-6. [Fluxo de Sincronização Playnite](#6-fluxo-de-sincronização-playnite)
-7. [Sequência de Implementação](#7-sequência-de-implementação)
+3. [Arquitetura](#3-arquitetura)
+4. [Schema do Banco de Dados](#4-schema-do-banco-de-dados)
+5. [Endpoints da API](#5-endpoints-da-api)
+6. [Contratos JSON](#6-contratos-json)
+7. [Fluxo de Sincronização Playnite](#7-fluxo-de-sincronização-playnite)
+8. [Sequência de Implementação](#8-sequência-de-implementação)
 
 ---
 
@@ -20,16 +21,16 @@
 | **Banco**              | SQLite via SQLModel     | Zero configuração, arquivo único, embarcado. Perfeito para Raspberry Pi/Oracle Free |
 | **ORM**                | SQLModel                | Unifica Pydantic + SQLAlchemy. Models servem como schema de validação E tabelas     |
 | **Migration**          | SQLModel `create_all()` | Sem ferramenta externa. No startup, cria as tabelas se não existirem                |
-| **Servidor**           | Uvicorn                 | ASGI server padrão do FastAPI                                                       |
+| **Servidor**           | Uvicorn                 | ASGI server padrão do FastAPI; também serve o build da dashboard                  |
 | **Export XLSX**        | openpyxl                | Maduro, sem dependências pesadas                                                    |
 | **Cache de metadados** | SQLite (na mesma DB)    | Evita refetch de HLTB/IGDB                                                          |
-| **Auth**               | Nenhuma (fase 1)        | Ambiente local/Raspberry. Futuramente API Key simples                               |
+| **Auth**               | Nenhuma (fase 1)        | Ambiente local. Futuramente API Key simples                                         |
 
 ### Por que SQLite em vez de PostgreSQL?
 
 - Você quer rodar em Raspberry Pi ou Oracle Cloud Free Tier — SQLite é zero configuração
 - Biblioteca de jogos: < 10.000 registros, < 50MB — SQLite aguenta tranquilamente
-- WAL mode (`PRAGMA journal_mode=WAL`) permite leitura concorrente durante escrita
+- O banco fica em uma pasta local compartilhada entre Windows/Linux; apenas um sistema o acessa por vez
 - Backup = copiar o arquivo `.db`
 
 ---
@@ -74,7 +75,69 @@ server/
 
 ---
 
-## 3. Schema do Banco de Dados
+## 3. Arquitetura
+
+### Camadas
+
+```
+┌─────────────────────────────────────────────┐
+│  Routers (games.py, sync.py, genres.py ...) │  ← HTTP, validação, serialização
+├─────────────────────────────────────────────┤
+│  Services (hltb.py)                         │  ← Lógica externa (HLTB API)
+├─────────────────────────────────────────────┤
+│  Models (Game, Platform, Genre ...)         │  ← SQLModel: tabelas + relacionamentos
+├─────────────────────────────────────────────┤
+│  Database (SQLite via SQLAlchemy)           │  ← game_library.db
+└─────────────────────────────────────────────┘
+```
+
+### Fluxo de dados principal
+
+```
+Playnite (C# extension, Windows)
+    │ POST /api/sync/playnite
+    ▼
+FastAPI → SQLite (game_library.db)
+    │ GET /api/games
+    ▼
+Dashboard (React) → usuário
+```
+
+### Diagrama de dependências entre módulos
+
+```
+main.py
+  ├── config.py          ← pydantic-settings (.env)
+  ├── database.py        ← engine SQLite
+  ├── models/__init__.py
+  │   ├── game.py        ← FK → platform, storage_device, genre (via GameGenreLink)
+  │   ├── genre.py
+  │   ├── platform.py
+  │   └── storage_device.py
+  ├── schemas.py         ← Pydantic: GameCreate, PlayniteGame, validações
+  ├── routers/
+  │   ├── games.py       ← CRUD + batch upsert; usa schemas, models, database
+  │   ├── sync.py        ← POST /api/sync/playnite; usa schemas, models, games._helpers
+  │   ├── export.py      ← usa utils/xlsx.py
+  │   ├── metadata.py    ← usa services/hltb.py
+  │   └── genres.py / platforms.py / storage.py ← CRUD catálogos
+  ├── services/
+  │   └── hltb.py        ← howlongtobeatpy
+  └── utils/
+      └── xlsx.py        ← openpyxl
+```
+
+### Padrões de código
+
+- **Find-or-create**: plataformas, gêneros e discos são auto-criados se não existirem ao criar/editar jogos
+- **JSON-in-Text**: `coop_type` armazenado como JSON string em coluna `Text` com helpers `coop_type_list()` / `coop_type_str()`
+- **Timestamps como string ISO 8601**: `created_at` e `updated_at` são strings (não `datetime`), ordenáveis lexicograficamente
+- **Eager loading via `selectinload`**: todas as queries de listagem carregam relacionamentos (platform, storage_device, genres)
+- **Português**: todos os valores de domínio (status, coop, input) em português
+
+---
+
+## 4. Schema do Banco de Dados
 
 ### Tabela: `games`
 
@@ -192,9 +255,9 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ---
 
-## 4. Endpoints da API
+## 5. Endpoints da API
 
-### 4.1 CRUD de Jogos
+### 5.1 CRUD de Jogos
 
 | Método   | Rota                                                                                  | Descrição                          |
 | -------- | ------------------------------------------------------------------------------------- | ---------------------------------- |
@@ -213,7 +276,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 - Se `gameplay_status == "Finalizado"` e `replay_score` for `null`, define como `3` (neutro)
 - `coop_type` aceita `list[str]` e converte para JSON string ao salvar
 
-### 4.2 Catálogos (para alimentar selects do frontend)
+### 5.2 Catálogos (para alimentar selects do frontend)
 
 | Método   | Rota                        | Descrição                               |
 | -------- | --------------------------- | --------------------------------------- |
@@ -230,22 +293,22 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 | `PUT`    | `/api/storage-devices/{id}` | Renomear disco                          |
 | `DELETE` | `/api/storage-devices/{id}` | Remover disco (erro se em uso)          |
 
-### 4.3 Sincronização
+### 5.3 Sincronização
 
-| Método | Rota                                        | Descrição                                                    |
-| ------ | ------------------------------------------- | ------------------------------------------------------------ |
-| `POST` | `/api/sync/playnite`                        | Recebe JSON nativo do Playnite, upsert por playnite_id       |
+| Método | Rota                                        | Descrição                                                             |
+| ------ | ------------------------------------------- | --------------------------------------------------------------------- |
+| `POST` | `/api/sync/playnite`                        | Recebe JSON nativo do Playnite, upsert por playnite_id                |
 | `POST` | `/api/games/batch`                          | Upsert em lote via JSON (aceita GameCreate[], upsert por playnite_id) |
-| `GET`  | `/api/sync/playnite/changes?since=ISO_DATE` | (futuro) Jogos modificados após data — para pull do Playnite |
+| `GET`  | `/api/sync/playnite/changes?since=ISO_DATE` | (futuro) Jogos modificados após data — para pull do Playnite          |
 
-### 4.4 Migração (Planilha → Banco)
+### 5.4 Migração (Planilha → Banco)
 
 | Método | Rota                | Descrição                             |
 | ------ | ------------------- | ------------------------------------- |
 | `POST` | `/api/migrate/xlsx` | Upload de .xlsx, importa para o banco |
 | `GET`  | `/api/export/xlsx`  | Gera .xlsx dump do banco              |
 
-### 4.5 Metadados (futuro)
+### 5.5 Metadados (futuro)
 
 | Método | Rota                             | Descrição                            |
 | ------ | -------------------------------- | ------------------------------------ |
@@ -256,9 +319,9 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ---
 
-## 5. Contratos JSON
+## 6. Contratos JSON
 
-### 5.1 GET `/api/games` (Lista paginada)
+### 6.1 GET `/api/games` (Lista paginada)
 
 **Response:**
 
@@ -302,7 +365,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 }
 ```
 
-### 5.2 POST `/api/games` (Criar Jogo)
+### 6.2 POST `/api/games` (Criar Jogo)
 
 **Request:**
 
@@ -355,11 +418,11 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 }
 ```
 
-### 5.3 POST `/api/sync/playnite` (Batch do Playnite)
+### 6.3 POST `/api/sync/playnite` (Batch do Playnite)
 
-**Request** — vide seção 6 abaixo.
+**Request** — vide [seção 7](#7-fluxo-de-sincronização-playnite).
 
-### 5.4 GET `/api/genres` (Lista catálogos)
+### 6.4 GET `/api/genres` (Lista catálogos)
 
 **Response:**
 
@@ -373,7 +436,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 `game_count` é opcional (via `LEFT JOIN`), útil para saber quais gêneros estão em uso.
 
-### 5.5 DELETE `/api/genres/{id}` (Proteção de integridade)
+### 6.5 DELETE `/api/genres/{id}` (Proteção de integridade)
 
 **Response (409) se o gênero estiver em uso:**
 
@@ -385,7 +448,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ---
 
-## 6. Fluxo de Sincronização Playnite
+## 7. Fluxo de Sincronização Playnite
 
 ### Premissas
 
@@ -457,7 +520,7 @@ Para informações que o Playnite possui e o servidor não (como `install_direct
 			"Categories": [],
 			"Tags": [],
 			"Features": ["Controller Support"],
-			"CoverImage": "C:\\Users\\...\\cover.png",
+			"CoverImage": "/api/covers/playnite/893d56b2-6014-411a-84bf-3b62fefae101/cover.png",
 			"BackgroundImage": null,
 			"PlayCount": 1,
 			"Notes": "Sensacional."
@@ -468,28 +531,31 @@ Para informações que o Playnite possui e o servidor não (como `install_direct
 
 **Mapeamento de campos (Playnite → Game Library):**
 
-| Playnite | Game Library | Regra |
-|---|---|---|
-| `Id` | `playnite_id` | Chave primária do upsert |
-| `Name` | `title` | Direto |
-| `InstallDirectory` | `storage_device` | Extrai drive letter → busca `StorageDevice.drive_letter` |
-| `Playtime` (segundos) | `playtime_seconds` | Direto |
-| `Genres[]` | `genres[]` | Direto (se vazio, usa `["Outro"]`) |
-| `Source` + `Platforms[]` | `platform` | Ver `_detect_platform()` abaixo |
-| `CompletionStatus` | `gameplay_status` | `Playing → Jogando`, `Completed → Finalizado`, `Abandoned → Abandonado`, fallback → `Backlog` |
-| `Categories[]` | `coop_type` + `coop_players` | `"coop local"` ou `"coop emulação"` → `["Sofá"]`, `"coop online"` → `["Online"]`, ambos → `["Online", "Sofá"]`. Qualquer coop → `"2 Jogadores"` |
-| `Features[]` | `input_recommendation` + `coop_screen_type` | `"Controller support"` → `"Controle"`, senão `"Teclado/Mouse"`. `"Split screen"` → `"Tela Dividida"`, `"Versus"` → `"Versus"`, senão `"Tela Inteira"` |
-| `CoverImage` | `cover_url` | `"/api/covers/playnite/{Id}/{filename}"` |
-| `BackgroundImage` | `background_url` | Mesmo padrão |
-| `Notes` | `notes` | Direto |
-| `Favorite` | `favorite` | `bool` — mapeado direto do Playnite |
-| `Tags[]` | `coop_players` (override) | `_map_tags_coop_players()`: se Tag contiver `"2 Jogadores"`, `"Até 4 Jogadores"`, etc., sobrescreve `coop_players` detectado via Categories |
+| Playnite                 | Game Library                                | Regra                                                                                                                                                 |
+| ------------------------ | ------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Id`                     | `playnite_id`                               | Chave primária do upsert                                                                                                                              |
+| `Name`                   | `title`                                     | Direto                                                                                                                                                |
+| `InstallDirectory`       | `storage_device`                            | Extrai drive letter → busca `StorageDevice.drive_letter`                                                                                              |
+| `Playtime` (segundos)    | `playtime_seconds`                          | Direto                                                                                                                                                |
+| `Genres[]`               | `genres[]`                                  | Direto; lista vazia é preservada como `[]`                                                                                                               |
+| `Source` + `Platforms[]` | `platform`                                  | Ver `_detect_platform()` abaixo                                                                                                                       |
+| `CompletionStatus`       | `gameplay_status`                           | `Playing/Jogando → Jogando`, `Completed/Finalizado → Finalizado`, `Abandoned/Abandonado → Abandonado`, fallback → `Backlog`                            |
+| `Categories[]`           | `coop_type` + `coop_players`                | `"coop local"` ou `"coop emulação"` → `["Sofá"]`, `"coop online"` → `["Online"]`, ambos → `["Online", "Sofá"]`. Qualquer coop → `"2 Jogadores"`       |
+| `Features[]`             | `input_recommendation` + `coop_screen_type` | `"Controller support"` → `"Controle"`, senão `"Teclado/Mouse"`. `"Split screen"` → `"Tela Dividida"`, `"Versus"` → `"Versus"`, senão `"Tela Inteira"` |
+| `CoverImage`             | `cover_url`                                 | Extrai apenas o nome do arquivo e persiste `"/api/covers/playnite/{Id}/{filename}"`, mesmo para caminhos absolutos ou URLs antigas                   |
+| `BackgroundImage`        | `background_url`                            | Mesmo padrão; valor ausente permanece `null`                                                                                                           |
+| `Notes`                  | `notes`                                     | Direto                                                                                                                                                |
+| `Favorite`               | `favorite`                                  | `bool` — mapeado direto do Playnite                                                                                                                   |
+| `Tags[]`                 | `coop_players` (override)                   | `_map_tags_coop_players()`: se Tag contiver `"2 Jogadores"`, `"Até 4 Jogadores"`, etc., sobrescreve `coop_players` detectado via Categories           |
 
 **Jogos ignorados:**
+
 - `Hidden: true` — pulado
 - `Categories` contém `"frontend launcher"` — pulado
 
 **Lógica do servidor ao receber:**
+
+`server_sync` envia `CoverImage` e `BackgroundImage` como links relativos. Para manter compatibilidade, o backend também aceita caminhos locais ou URLs absolutas antigas, extrai apenas o nome do arquivo e persiste sempre o formato relativo.
 
 ```
 1. Para cada game no array:
@@ -526,13 +592,20 @@ Para informações que o Playnite possui e o servidor não (como `install_direct
 #      Se Source conhecido (Steam/Epic/GOG/EA/Ubisoft) → "PC ({Source})"
 #      Senão → "PC (Steam)"
 # 3. Senão, busca em PLATFORM_MAP (case-insensitive):
+#      "macOS" → "PC (Steam)"
 #      "Nintendo Switch" / "Switch" → "Switch"
 #      "Nintendo 3DS" / "3DS" → "3DS"
-#      "PlayStation 1" / "PS1" → "PS1"
-#      "Game Boy Advance" / "GBA" → "GBA"
+#      "PlayStation 1" / "Sony PlayStation" / "PS1" → "PS1"
+#      "PlayStation 2" / "Sony PlayStation 2" / "PS2" → "PS2"
+#      "Game Boy Advance" / "Nintendo Game Boy Advance" / "GBA" → "GBA"
+#      "Nintendo SNES" / "SNES" → "SNES"
 #      ... etc
 # 4. Fallback: primeiro item de Platforms, ou "PC (Steam)" se vazio
 ```
+
+O mapeamento também aceita separadores Windows ou Unix nos assets. O helper
+`playnite_asset_url()` remove diretórios e hosts legados antes de persistir o caminho
+relativo, evitando que o banco dependa do IP ou do hostname usado no momento da captura.
 
 **Extração do disco a partir do `install_directory`:**
 
@@ -553,7 +626,19 @@ def extract_disk(install_dir: str | None) -> str | None:
 
 ---
 
-## 7. Sequência de Implementação
+## 8. Sequência de Implementação
+
+### ✅ Versão 1.3.0
+
+```
+[x] Incorporar mapeamentos Playnite de macOS, Nintendo e Sony
+[x] Aceitar status de conclusão em português
+[x] Permitir lista de gêneros vazia no sync
+[x] Persistir capas/backgrounds como URLs relativas
+[x] Servir dashboard por HTTPS e hostname mDNS
+[x] Disponibilizar manifest e service worker PWA
+[x] Preparar operação Linux/Windows com banco NTFS compartilhado
+```
 
 ### ✅ Fase 1: Core do Backend (concluído)
 
@@ -663,20 +748,21 @@ def extract_disk(install_dir: str | None) -> str | None:
 [ ] Construir extensão C# do Playnite seguindo o contrato — futuro
 ```
 
-### Fase 7: Deploy (futuro)
+### Fase 7: Deploy local e futuro
 
 ```
-[ ] Configurar uvicorn + systemd no Raspberry Pi
-[ ] Configurar Cloudflare Tunnel (ou similar)
-[ ] Fazer build do frontend e servir via nginx/caddy
-[ ] Configurar cron de backup do .db e export .xlsx
+[x] Fazer build do frontend e servi-lo pelo próprio FastAPI
+[x] Preparar inicializadores para Windows e Linux
+[x] Usar banco e capas na partição NTFS compartilhada
+[ ] Configurar uvicorn + systemd no Raspberry Pi quando houver alimentação
+[ ] Configurar backup automático do .db e export .xlsx
 ```
 
 ### ✅ Covers Path Fix (v1.2.1)
 
 ```
-[x] COVERS_DIR corrigido de ./playnite_covers para ./app/files
-[x] Cobertura real de capas: 648 diretórios de covers encontrados em app/files/
+[x] COVERS_DIR compatível com a pasta nativa do Playnite
+[x] Capas servidas por /api/covers/playnite/{id}/{filename}
 [x] Docs atualizados (.env.example, README.md, DOCS_BACKEND.md)
 ```
 

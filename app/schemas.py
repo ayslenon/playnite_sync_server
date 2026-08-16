@@ -32,7 +32,7 @@ class GameCreate(BaseModel):
     playnite_id: str | None = None
     cover_url: str | None = None
     background_url: str | None = None
-    genres: list[str] = Field(min_length=1)
+    genres: list[str] = Field(default_factory=list)
     platform: str = Field(min_length=1)
     storage_device: str | None = None
     gameplay_status: GAMEPLAY_STATUS = "Backlog"
