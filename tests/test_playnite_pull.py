@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 from pydantic import ValidationError
 
-from app.routers.sync import pull_playnite_games
+from app.routers.sync import _normalize_score_for_playnite, pull_playnite_games
 from app.schemas import PlaynitePullRequest
 
 
@@ -12,6 +12,7 @@ def make_game(
     *,
     status="Jogando",
     replay_score=4,
+    score="8/10",
     genres=None,
 ):
     return SimpleNamespace(
@@ -22,6 +23,7 @@ def make_game(
         must_test=False,
         interest_rating=5,
         replay_score=replay_score,
+        score=score,
         updated_at="2026-08-23T12:00:00+00:00",
     )
 
@@ -80,7 +82,7 @@ class PlaynitePullTests(unittest.TestCase):
 
     def test_pull_returns_final_score_and_only_active_fields(self):
         session = FakeSession(
-            [make_game("id-1", status="Finalizado", replay_score=4)]
+            [make_game("id-1", status="Finalizado", replay_score=4, score="9.5")]
         )
 
         result = pull_playnite_games(
@@ -90,6 +92,7 @@ class PlaynitePullTests(unittest.TestCase):
 
         game = result["games"][0]
         self.assertEqual(game["replay_score"], 4)
+        self.assertEqual(game["score"], "9.5/10")
         self.assertEqual(
             set(game),
             {
@@ -100,9 +103,40 @@ class PlaynitePullTests(unittest.TestCase):
                 "must_test",
                 "interest_rating",
                 "replay_score",
+                "score",
                 "updated_at",
             },
         )
+
+    def test_score_normalization_accepts_supported_formats(self):
+        cases = {
+            "8": "8/10",
+            "8/10": "8/10",
+            "9.5": "9.5/10",
+            "9,5": "9.5/10",
+            " 7,50 / 10 ": "7.5/10",
+            "0": "0/10",
+            "10.0": "10/10",
+        }
+
+        for raw, expected in cases.items():
+            with self.subTest(raw=raw):
+                self.assertEqual(_normalize_score_for_playnite(raw), expected)
+
+    def test_score_normalization_rejects_missing_invalid_or_out_of_range(self):
+        invalid_values = (
+            None,
+            "",
+            " ",
+            "abc",
+            "8/5",
+            "8/10/10",
+            "-1",
+            "10.1",
+        )
+        for raw in invalid_values:
+            with self.subTest(raw=raw):
+                self.assertIsNone(_normalize_score_for_playnite(raw))
 
 
 if __name__ == "__main__":

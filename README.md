@@ -119,9 +119,10 @@ Com o servidor rodando:
 - `coop_type` aceita `list[str]` → serializado como JSON no banco
 - Se `gameplay_status == "Finalizado"` e `replay_score` for `null`, assume `3`
 - `POST /api/sync/playnite` preserva `hltb_*`, `interest_rating`, `replay_score`, `score`, `must_test`, `finish_hours`, `finish_date`
-- `POST /api/sync/playnite/pull` retorna apenas gêneros, status, favorito, `must_test`, vontade (`interest_rating`) e nota final (`replay_score`)
+- `POST /api/sync/playnite/pull` retorna gêneros, status, favorito, `must_test`, `interest_rating`, `replay_score` e a nota pessoal normalizada em `score`
 - O pull não envia nem altera título, plataforma, fonte, observações, imagens, tempo jogado, HLTB ou cooperação
-- `interest_rating` usa a tag existente `[Vontade de Jogar] N`; `replay_score` é convertido para o `UserScore` do Playnite (1–5 → 20–100)
+- `score` aceita número com ou sem `/10` e ponto ou vírgula decimal; o pull devolve `x/10` e a extensão converte para o `UserScore` de 0–100
+- `interest_rating` usa `[Vontade de Jogar] N`; `replay_score` usa `[Vontade de Rejogar] N` e não interfere mais no `UserScore`
 
 ### Filtros multi-valor
 

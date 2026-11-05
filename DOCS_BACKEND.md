@@ -448,6 +448,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
       "must_test": false,
       "interest_rating": 5,
       "replay_score": 4,
+      "score": "9.5/10",
       "updated_at": "2026-08-23T12:00:00+00:00"
     }
   ],
@@ -457,7 +458,8 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 O pull não altera o banco e não retorna plataforma, fonte, título, observações,
 imagens, tempo jogado, HLTB ou cooperação. `replay_score` só é retornado quando
-o status é `Finalizado`.
+o status é `Finalizado`. `score` é normalizado para `x/10`; valores vazios,
+inválidos ou fora de 0–10 são retornados como `null`.
 
 ### 6.5 GET `/api/genres` (Lista catálogos)
 
@@ -489,10 +491,11 @@ o status é `Finalizado`.
 
 ### Premissas
 
-- **Servidor é a fonte da verdade para o pull ativo.** Gêneros, status, favorito, vontade, precisa testar e nota final prevalecem sobre os valores do Playnite.
+- **Servidor é a fonte da verdade para o pull ativo.** Gêneros, status, favorito, vontades, precisa testar e nota pessoal prevalecem sobre os valores do Playnite quando o valor remoto é válido.
 - **Direção do sync:** Servidor → Playnite (o servidor exporta, a extensão C# importa no Playnite).
 - `interest_rating` representa vontade de jogar e é mantido na tag existente `[Vontade de Jogar] N`.
-- `replay_score` representa a nota do jogo finalizado e é convertido para o `UserScore` nativo do Playnite (1–5 → 20–100).
+- `replay_score` representa vontade de rejogar e é mantido na tag `[Vontade de Rejogar] N` (1–5).
+- `score` representa a nota pessoal, é enviado como `x/10` e convertido para o `UserScore` nativo do Playnite (0–100). Se ausente ou inválido, a nota local é preservada.
 - Metadados (`release_date`, `developers`, `publishers`) **não são armazenados** no servidor.
 - `playtime_seconds` é armazenado mas sem regra de negócio vinculada a `finish_hours`.
 - Plataforma, fonte, título, observações, imagens, tempo jogado, HLTB e cooperação não são alterados pelo pull.
@@ -519,6 +522,7 @@ A extensão C# envia os IDs dos jogos selecionados e recebe os dados controlados
 			"must_test": false,
 			"interest_rating": 5,
 			"replay_score": 4,
+			"score": "9.5/10",
 			"updated_at": "2026-08-23T12:00:00+00:00"
 		}
 	],

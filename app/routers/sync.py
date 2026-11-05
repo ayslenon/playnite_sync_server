@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timezone
+from decimal import Decimal, InvalidOperation
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlmodel import func, select, Session
@@ -293,6 +294,41 @@ def sync_playnite(data: PlayniteSyncPayload, session: Session = Depends(get_sess
     return {"processed": len(results), "skipped": skipped, "results": results}
 
 
+def _normalize_score_for_playnite(score: str | None) -> str | None:
+    if score is None:
+        return None
+
+    raw = score.strip().replace(",", ".")
+    if not raw:
+        return None
+
+    parts = [part.strip() for part in raw.split("/")]
+    if len(parts) == 1:
+        numerator = parts[0]
+    elif len(parts) == 2 and parts[1] == "10":
+        numerator = parts[0]
+    else:
+        return None
+
+    if not numerator or any(char not in "0123456789." for char in numerator):
+        return None
+    if numerator.count(".") > 1:
+        return None
+
+    try:
+        value = Decimal(numerator)
+    except InvalidOperation:
+        return None
+
+    if not value.is_finite() or value < 0 or value > 10:
+        return None
+
+    normalized = format(value.normalize(), "f")
+    if "." in normalized:
+        normalized = normalized.rstrip("0").rstrip(".")
+    return f"{normalized}/10"
+
+
 def _playnite_pull_dict(game: Game) -> dict:
     gameplay_status = game.gameplay_status
     replay_score = None
@@ -311,6 +347,7 @@ def _playnite_pull_dict(game: Game) -> dict:
         "must_test": game.must_test,
         "interest_rating": game.interest_rating,
         "replay_score": replay_score,
+        "score": _normalize_score_for_playnite(game.score),
         "updated_at": game.updated_at,
     }
 

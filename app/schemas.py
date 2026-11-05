@@ -264,6 +264,7 @@ class PlaynitePullGame(BaseModel):
     must_test: bool
     interest_rating: int = Field(ge=1, le=5)
     replay_score: int | None = Field(default=None, ge=1, le=5)
+    score: str | None = None
     updated_at: str
 
 
