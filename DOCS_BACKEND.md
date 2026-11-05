@@ -456,8 +456,8 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 }
 ```
 
-O pull não altera o banco e não retorna plataforma, fonte, título, observações,
-imagens, tempo jogado, HLTB ou cooperação. `replay_score` só é retornado quando
+O pull não altera o banco e retorna observações, cooperação, jogadores, tela e input.
+Não retorna plataforma, fonte, título, imagens, tempo jogado ou HLTB. `replay_score` só é retornado quando
 o status é `Finalizado`. `score` é normalizado para `x/10`; valores vazios,
 inválidos ou fora de 0–10 são retornados como `null`.
 
@@ -498,7 +498,7 @@ inválidos ou fora de 0–10 são retornados como `null`.
 - `score` representa a nota pessoal, é enviado como `x/10` e convertido para o `UserScore` nativo do Playnite (0–100). Se ausente ou inválido, a nota local é preservada.
 - Metadados (`release_date`, `developers`, `publishers`) **não são armazenados** no servidor.
 - `playtime_seconds` é armazenado mas sem regra de negócio vinculada a `finish_hours`.
-- Plataforma, fonte, título, observações, imagens, tempo jogado, HLTB e cooperação não são alterados pelo pull.
+- Plataforma, fonte, título, imagens, tempo jogado e HLTB não são alterados pelo pull. Cooperação, jogadores, tela e input usam tags com prefixo `[Servidor]`; o upload reconhece essas tags. Notas usam o campo nativo do Playnite. O último fluxo executado prevalece.
 
 ### Contrato: Servidor → Extensão C# (Pull)
 

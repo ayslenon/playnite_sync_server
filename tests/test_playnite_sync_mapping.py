@@ -5,6 +5,23 @@ from app.schemas import PlayniteGame
 
 
 class PlayniteSyncMappingTests(unittest.TestCase):
+    def test_managed_tags_round_trip_override_legacy_metadata(self):
+        item = PlayniteGame(Id="id", Name="Teste", Platforms=["PC"],
+            Categories=["coop online"], Features=["Controller Support"],
+            Tags=["[Servidor] Coop: Sofá", "[Servidor] Coop: LAN",
+                  "[Servidor] Jogadores: Até 4 Jogadores", "[Servidor] Tela: Versus",
+                  "[Servidor] Input: Ambos", "Outra tag"], Notes="Observação")
+        result = _playnite_to_gamecreate(None, item)
+        self.assertEqual(result.coop_type, ["Sofá", "LAN"])
+        self.assertEqual(result.coop_players, "Até 4 Jogadores")
+        self.assertEqual(result.coop_screen_type, "Versus")
+        self.assertEqual(result.input_recommendation, "Ambos")
+        self.assertEqual(result.notes, "Observação")
+
+    def test_empty_coop_round_trip(self):
+        item = PlayniteGame(Id="id", Name="Teste", Tags=["[Servidor] Coop: Nenhum"])
+        self.assertEqual(_playnite_to_gamecreate(None, item).coop_type, [])
+
     def test_platform_aliases(self):
         for source, expected in (
             ("macOS", "PC (Steam)"),

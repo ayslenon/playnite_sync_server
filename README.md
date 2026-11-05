@@ -119,8 +119,10 @@ Com o servidor rodando:
 - `coop_type` aceita `list[str]` → serializado como JSON no banco
 - Se `gameplay_status == "Finalizado"` e `replay_score` for `null`, assume `3`
 - `POST /api/sync/playnite` preserva `hltb_*`, `interest_rating`, `replay_score`, `score`, `must_test`, `finish_hours`, `finish_date`
-- `POST /api/sync/playnite/pull` retorna gêneros, status, favorito, `must_test`, `interest_rating`, `replay_score` e a nota pessoal normalizada em `score`
-- O pull não envia nem altera título, plataforma, fonte, observações, imagens, tempo jogado, HLTB ou cooperação
+- `POST /api/sync/playnite/pull` também retorna observações, cooperação, jogadores, tela e input, além dos demais campos sincronizados.
+- No Playnite, cooperação, jogadores, tela e input usam tags `[Servidor] Coop: ...`, `[Servidor] Jogadores: ...`, `[Servidor] Tela: ...` e `[Servidor] Input: ...`. Outras tags, categorias e recursos são preservados; no upload essas tags têm prioridade sobre o mapeamento legado.
+- Upload e downlink são manuais: o último executado prevalece para os campos compartilhados. Faça downlink antes de enviar dados antigos do Playnite, para não sobrescrever alterações da dashboard.
+- O pull não altera título, plataforma, fonte, imagens, tempo jogado ou HLTB.
 - `score` é um número de 0 a 10 ou `null`; o pull envia o mesmo número e a extensão converte para o `UserScore` de 0–100. Atualize servidor, dashboard e plugin juntos.
 - `interest_rating` usa `[Vontade de Jogar] N`; `replay_score` usa `[Vontade de Rejogar] N` e não interfere mais no `UserScore`
 

@@ -175,6 +175,18 @@ def _map_tags_coop_players(tags: list[str]) -> str | None:
     return None
 
 
+def _managed_values(tags: list[str], field: str, allowed: set[str]) -> list[str]:
+    prefix = f"[servidor] {field}:"
+    values = {value.casefold(): value for value in allowed}
+    return list(dict.fromkeys(
+        values[raw.casefold()]
+        for tag in tags
+        if tag.strip().casefold().startswith(prefix)
+        for raw in [tag.strip()[len(prefix):].strip()]
+        if raw.casefold() in values
+    ))
+
+
 def _should_skip(game_data) -> tuple[bool, str | None]:
     if game_data.Hidden:
         return True, "Hidden game"
@@ -229,6 +241,18 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
     if tag_players:
         coop_players = tag_players
     input_rec, coop_screen = _map_features(item.Features)
+    managed_coop = _managed_values(item.Tags, "coop", {"Um Jogador", "Sofá", "Online", "LAN", "Nenhum"})
+    managed_players = _managed_values(item.Tags, "jogadores", {"1 Jogador", "2 Jogadores", "Até 4 Jogadores", "Mais de 4 Jogadores"})
+    managed_input = _managed_values(item.Tags, "input", {"Controle", "Teclado/Mouse", "Ambos"})
+    managed_screen = _managed_values(item.Tags, "tela", {"Tela Inteira", "Tela Dividida", "Versus"})
+    if managed_coop:
+        coop_type = [value for value in managed_coop if value != "Nenhum"]
+    if len(managed_players) == 1:
+        coop_players = managed_players[0]
+    if len(managed_input) == 1:
+        input_rec = managed_input[0]
+    if len(managed_screen) == 1:
+        coop_screen = managed_screen[0]
 
     cover_url = playnite_asset_url(item.Id, item.CoverImage)
     background_url = playnite_asset_url(item.Id, item.BackgroundImage)
@@ -312,6 +336,11 @@ def _playnite_pull_dict(game: Game) -> dict:
         "interest_rating": game.interest_rating,
         "replay_score": replay_score,
         "score": game.score,
+        "notes": game.notes,
+        "coop_players": game.coop_players,
+        "coop_type": game.coop_type_list(),
+        "coop_screen_type": game.coop_screen_type,
+        "input_recommendation": game.input_recommendation,
         "updated_at": game.updated_at,
     }
 

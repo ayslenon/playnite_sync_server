@@ -251,6 +251,11 @@ class PlaynitePullGame(BaseModel):
     interest_rating: int = Field(ge=1, le=5)
     replay_score: int | None = Field(default=None, ge=1, le=5)
     score: float | None = Field(default=None, ge=0, le=10, allow_inf_nan=False)
+    notes: str | None = None
+    coop_players: COOP_PLAYERS
+    coop_type: list[str]
+    coop_screen_type: COOP_SCREEN_TYPE
+    input_recommendation: INPUT_REC
     updated_at: str
 
 

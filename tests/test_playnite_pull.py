@@ -24,6 +24,11 @@ def make_game(
         interest_rating=5,
         replay_score=replay_score,
         score=score,
+        notes="Minha nota",
+        coop_players="Até 4 Jogadores",
+        coop_type_list=lambda: ["Sofá", "Online"],
+        coop_screen_type="Tela Dividida",
+        input_recommendation="Ambos",
         updated_at="2026-08-23T12:00:00+00:00",
     )
 
@@ -93,6 +98,8 @@ class PlaynitePullTests(unittest.TestCase):
         game = result["games"][0]
         self.assertEqual(game["replay_score"], 4)
         self.assertEqual(game["score"], 9.5)
+        self.assertEqual(game["notes"], "Minha nota")
+        self.assertEqual(game["coop_type"], ["Sofá", "Online"])
         self.assertEqual(
             set(game),
             {
@@ -104,6 +111,11 @@ class PlaynitePullTests(unittest.TestCase):
                 "interest_rating",
                 "replay_score",
                 "score",
+                "notes",
+                "coop_players",
+                "coop_type",
+                "coop_screen_type",
+                "input_recommendation",
                 "updated_at",
             },
         )
