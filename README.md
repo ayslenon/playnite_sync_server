@@ -55,7 +55,7 @@ bash scripts/generate_local_cert.sh
 Esses inicializadores sobem backend e dashboard em HTTPS na porta `8000`. O frontend compilado é servido pelo próprio FastAPI.
 O endereço principal é `https://ayslenon-pc.local:8000`.
 
-O servidor cria `game_library.db` e popula automaticamente no primeiro startup:
+O servidor usa o banco compartilhado `GameLibraryData/game_library.db` e popula os catálogos no primeiro startup:
 
 - **16 plataformas** (PC Steam/Epic/GOG/EA/Ubisoft, 3DS, DS, GBA, N64, GameCube, PS1, PS2, PSP, SNES, Switch, Wii)
 - **4 discos** (SSD Windows, HD ROMs, HD Singleplayer, HD Multiplayer)
@@ -121,7 +121,7 @@ Com o servidor rodando:
 - `POST /api/sync/playnite` preserva `hltb_*`, `interest_rating`, `replay_score`, `score`, `must_test`, `finish_hours`, `finish_date`
 - `POST /api/sync/playnite/pull` retorna gêneros, status, favorito, `must_test`, `interest_rating`, `replay_score` e a nota pessoal normalizada em `score`
 - O pull não envia nem altera título, plataforma, fonte, observações, imagens, tempo jogado, HLTB ou cooperação
-- `score` aceita número com ou sem `/10` e ponto ou vírgula decimal; o pull devolve `x/10` e a extensão converte para o `UserScore` de 0–100
+- `score` é um número de 0 a 10 ou `null`; o pull envia o mesmo número e a extensão converte para o `UserScore` de 0–100. Atualize servidor, dashboard e plugin juntos.
 - `interest_rating` usa `[Vontade de Jogar] N`; `replay_score` usa `[Vontade de Rejogar] N` e não interfere mais no `UserScore`
 
 ### Filtros multi-valor
@@ -136,7 +136,7 @@ GET /api/games?status=Backlog,Jogando&platform=PC,Switch&genre=RPG,Aventura&inte
 
 | Variável       | Default                       | Descrição                                  |
 | -------------- | ----------------------------- | ------------------------------------------ |
-| `DATABASE_URL` | `sqlite:///./game_library.db` | Caminho do banco                           |
+| `DATABASE_URL` | Banco compartilhado em `GameLibraryData` | URL SQLite; sobrescreve o padrão se definida |
 | `DEBUG`        | `false`                       | Modo debug (SQL echo)                      |
 | `COVERS_DIR`   | `./app/files`                 | Diretório com capas exportadas do Playnite |
 | `FRONTEND_DIST`| `../dashboard/dist`           | Diretório do build React servido pelo backend |
@@ -153,6 +153,14 @@ Os exemplos `.env.linux.example` e `.env.windows.example` apontam para a mesma �
 - Capas: `C:/Users/Console/AppData/Roaming/Playnite/library/files`
 
 No Linux, a partição deve estar montada em `/mnt/windows`. O banco deve ser acessado somente pelo sistema operacional atualmente inicializado. Desative o Fast Startup/hibernação do Windows com `powercfg /h off` antes de permitir escrita no volume pelo Linux.
+
+Para migrar notas antigas, pare o servidor e execute uma vez, usando o Python do sistema atual:
+
+```bash
+python scripts/migrate_scores.py /mnt/windows/GameLibraryData/game_library.db
+```
+
+No Windows use `python scripts/migrate_scores.py C:\GameLibraryData\game_library.db`. O script valida todas as notas e cria um backup ao lado do banco antes de alterar a coluna. O servidor registra o caminho aberto na inicialização e recusa bancos com o formato antigo.
 
 Depois que o volume estiver gravável e o servidor parado, normalize as capas antigas:
 

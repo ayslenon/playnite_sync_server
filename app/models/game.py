@@ -33,7 +33,7 @@ class Game(SQLModel, table=True):
     gameplay_status: str = Field(default="Backlog", nullable=False)
     interest_rating: int = Field(default=3, nullable=False)
     replay_score: int | None = Field(default=None)
-    score: str | None = Field(default=None)
+    score: float | None = Field(default=None)
     must_test: bool = Field(default=False, nullable=False)
     favorite: bool = Field(default=False, nullable=False)
 

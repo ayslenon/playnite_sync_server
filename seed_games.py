@@ -26,7 +26,7 @@ COOP_TYPES = {
 COOP_SCREEN = ["Tela Inteira", "Tela Dividida", "Versus"]
 INPUT_OPTIONS = ["Controle", "Teclado/Mouse", "Ambos"]
 
-SCORE_OPTIONS = [None, "5/10", "6/10", "7/10", "8/10", "9/10", "10/10", "9.5"]
+SCORE_OPTIONS = [None, 5, 6, 7, 8, 9, 10, 9.5]
 
 TITLES = [
     "Starfall Frontier",

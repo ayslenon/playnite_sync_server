@@ -34,7 +34,7 @@ if [[ ! -f "$CERT_FILE" || ! -f "$KEY_FILE" ]]; then
 fi
 
 cd "$SERVER_DIR"
-export DATABASE_URL="sqlite:////mnt/windows/GameLibraryData/game_library.db"
+export DATABASE_URL="sqlite:///$DATA_DIR/game_library.db"
 export DEBUG="false"
 export COVERS_DIR
 export FRONTEND_DIST="$PROJECT_DIR/dashboard/dist"

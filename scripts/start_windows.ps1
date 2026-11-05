@@ -33,7 +33,7 @@ if (-not (Test-Path $KeyFile -PathType Leaf)) {
     throw "Chave HTTPS não encontrada: $KeyFile"
 }
 
-$env:DATABASE_URL = "sqlite:///C:/GameLibraryData/game_library.db"
+$env:DATABASE_URL = "sqlite:///" + $DatabasePath.Replace('\', '/')
 $env:DEBUG = "false"
 $env:COVERS_DIR = $CoversDir
 $env:FRONTEND_DIST = $FrontendDist

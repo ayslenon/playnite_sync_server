@@ -38,7 +38,7 @@ class GameCreate(BaseModel):
     gameplay_status: GAMEPLAY_STATUS = "Backlog"
     interest_rating: int = Field(default=3, ge=1, le=5)
     replay_score: int | None = Field(default=None, ge=1, le=5)
-    score: str | None = None
+    score: float | None = Field(default=None, ge=0, le=10, allow_inf_nan=False)
     must_test: bool = False
     favorite: bool = False
     finish_hours: float | None = Field(default=None, ge=0)
@@ -80,13 +80,6 @@ class GameCreate(BaseModel):
     def check_finish_date(cls, v: str | None) -> str | None:
         return validate_iso_date(v)
 
-    @field_validator("score")
-    @classmethod
-    def check_score(cls, v: str | None) -> str | None:
-        if v is not None and v.strip() == "":
-            return None
-        return v
-
     @model_validator(mode="after")
     def validate_finalized(self):
         if self.gameplay_status == "Finalizado":
@@ -105,7 +98,7 @@ class GameUpdate(BaseModel):
     gameplay_status: GAMEPLAY_STATUS | None = None
     interest_rating: int | None = Field(default=None, ge=1, le=5)
     replay_score: int | None = Field(default=None, ge=1, le=5)
-    score: str | None = None
+    score: float | None = Field(default=None, ge=0, le=10, allow_inf_nan=False)
     must_test: bool | None = None
     favorite: bool | None = None
     finish_hours: float | None = Field(default=None, ge=0)
@@ -149,13 +142,6 @@ class GameUpdate(BaseModel):
     @classmethod
     def check_finish_date(cls, v: str | None) -> str | None:
         return validate_iso_date(v)
-
-    @field_validator("score")
-    @classmethod
-    def check_score(cls, v: str | None) -> str | None:
-        if v is not None and v.strip() == "":
-            return None
-        return v
 
 
 class BatchCreateRequest(BaseModel):
@@ -264,7 +250,7 @@ class PlaynitePullGame(BaseModel):
     must_test: bool
     interest_rating: int = Field(ge=1, le=5)
     replay_score: int | None = Field(default=None, ge=1, le=5)
-    score: str | None = None
+    score: float | None = Field(default=None, ge=0, le=10, allow_inf_nan=False)
     updated_at: str
 
 

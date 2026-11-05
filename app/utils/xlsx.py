@@ -121,7 +121,7 @@ def export_games(session: Session) -> BytesIO:
             genre_names,
             storage_name,
             game.interest_rating,
-            game.score or "",
+            game.score if game.score is not None else "",
             game.replay_score or "",
             _format_playtime(game.playtime_seconds),
             int(game.hltb_main) if game.hltb_main else "",
