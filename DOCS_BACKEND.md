@@ -299,7 +299,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 | ------ | ------------------------------------------- | --------------------------------------------------------------------- |
 | `POST` | `/api/sync/playnite`                        | Recebe JSON nativo do Playnite, upsert por playnite_id                |
 | `POST` | `/api/games/batch`                          | Upsert em lote via JSON (aceita GameCreate[], upsert por playnite_id) |
-| `GET`  | `/api/sync/playnite/changes?since=ISO_DATE` | (futuro) Jogos modificados após data — para pull do Playnite          |
+| `POST` | `/api/sync/playnite/pull`                  | Retorna dados controlados para uma lista de `playnite_ids`           |
 
 ### 5.4 Migração (Planilha → Banco)
 
@@ -422,7 +422,44 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 **Request** — vide [seção 7](#7-fluxo-de-sincronização-playnite).
 
-### 6.4 GET `/api/genres` (Lista catálogos)
+### 6.4 POST `/api/sync/playnite/pull` (Servidor → Playnite)
+
+**Request:**
+
+```json
+{
+  "playnite_ids": ["id-1", "id-2"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "requested": 2,
+  "found": 1,
+  "not_found": 1,
+  "games": [
+    {
+      "playnite_id": "id-1",
+      "genres": ["RPG", "Aventura"],
+      "gameplay_status": "Finalizado",
+      "favorite": true,
+      "must_test": false,
+      "interest_rating": 5,
+      "replay_score": 4,
+      "updated_at": "2026-08-23T12:00:00+00:00"
+    }
+  ],
+  "missing_playnite_ids": ["id-2"]
+}
+```
+
+O pull não altera o banco e não retorna plataforma, fonte, título, observações,
+imagens, tempo jogado, HLTB ou cooperação. `replay_score` só é retornado quando
+o status é `Finalizado`.
+
+### 6.5 GET `/api/genres` (Lista catálogos)
 
 **Response:**
 
@@ -436,7 +473,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 `game_count` é opcional (via `LEFT JOIN`), útil para saber quais gêneros estão em uso.
 
-### 6.5 DELETE `/api/genres/{id}` (Proteção de integridade)
+### 6.6 DELETE `/api/genres/{id}` (Proteção de integridade)
 
 **Response (409) se o gênero estiver em uso:**
 
@@ -452,38 +489,40 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 
 ### Premissas
 
-- **Servidor é a fonte da verdade.** O primeiro upload vem da planilha (via `POST /api/migrate/xlsx`). Os dados do servidor (nota, status, coop, etc.) prevalecem sobre os do Playnite.
+- **Servidor é a fonte da verdade para o pull ativo.** Gêneros, status, favorito, vontade, precisa testar e nota final prevalecem sobre os valores do Playnite.
 - **Direção do sync:** Servidor → Playnite (o servidor exporta, a extensão C# importa no Playnite).
-- `user_score` do Playnite **não é utilizado**. A nota que vale é `interest_rating` (servidor).
+- `interest_rating` representa vontade de jogar e é mantido na tag existente `[Vontade de Jogar] N`.
+- `replay_score` representa a nota do jogo finalizado e é convertido para o `UserScore` nativo do Playnite (1–5 → 20–100).
 - Metadados (`release_date`, `developers`, `publishers`) **não são armazenados** no servidor.
 - `playtime_seconds` é armazenado mas sem regra de negócio vinculada a `finish_hours`.
-- Tags do Playnite podem ser usadas **apenas de forma transiente** para mapear `coop_type` (opcional).
+- Plataforma, fonte, título, observações, imagens, tempo jogado, HLTB e cooperação não são alterados pelo pull.
 
 ### Contrato: Servidor → Extensão C# (Pull)
 
-A extensão C# chama o endpoint para obter jogos modificados:
+A extensão C# envia os IDs dos jogos selecionados e recebe os dados controlados do servidor:
 
-**Request** `GET /api/sync/playnite/changes?since=2026-07-01T00:00:00`
+**Request** `POST /api/sync/playnite/pull` com uma lista de `playnite_ids`.
 
 **Response:**
 
 ```json
 {
+	"requested": 2,
+	"found": 1,
+	"not_found": 1,
 	"games": [
 		{
 			"playnite_id": "893d56b2-6014-411a-84bf-3b62fefae101",
-			"title": "The Witcher 3: Wild Hunt",
 			"genres": ["RPG", "Aventura", "Mundo Aberto"],
-			"platforms": ["PC (Steam)"],
-			"cover_url": "https://...",
-			"background_url": "https://...",
-			"completion_status": "Finalizado",
-			"playtime_seconds": 45000,
-			"notes": "Sensacional.",
-			"is_installed": true,
-			"install_directory": "J:\\Jogos\\TheWitcher3"
+			"gameplay_status": "Finalizado",
+			"favorite": true,
+			"must_test": false,
+			"interest_rating": 5,
+			"replay_score": 4,
+			"updated_at": "2026-08-23T12:00:00+00:00"
 		}
-	]
+	],
+	"missing_playnite_ids": ["id-2"]
 }
 ```
 
@@ -491,9 +530,9 @@ A extensão C# chama o endpoint para obter jogos modificados:
 
 | Servidor       | Playnite    |
 | -------------- | ----------- |
-| `"Backlog"`    | `NotPlayed` |
+| `"Backlog"`    | `Not Played` / `Plan to Play` |
 | `"Jogando"`    | `Playing`   |
-| `"Finalizado"` | `Beaten`    |
+| `"Finalizado"` | `Completed` |
 | `"Abandonado"` | `Abandoned` |
 
 ### Contrato: Extensão C# → Servidor (Push)
@@ -735,7 +774,7 @@ def extract_disk(install_dir: str | None) -> str | None:
 ### Fase 6: Sincronização Playnite
 
 ```
-[ ] Implementar GET /api/sync/playnite/changes (pull: servidor → Playnite) — futuro
+[x] Implementar POST /api/sync/playnite/pull (pull: servidor → Playnite)
 [x] Implementar POST /api/sync/playnite (push: Playnite → servidor)
     - Mapeamento completo: playnite_id, title, platform, genres, gameplay_status,
       coop_type, coop_players, coop_screen_type, input_recommendation,
@@ -745,7 +784,7 @@ def extract_disk(install_dir: str | None) -> str | None:
     - Skip: jogos ocultos (Hidden) e frontend launcher
     - _detect_platform com SOURCE_MAP + PLATFORM_MAP (case-insensitive)
     - _detect_storage_from_path via drive_letter do StorageDevice
-[ ] Construir extensão C# do Playnite seguindo o contrato — futuro
+[x] Construir extensão C# do Playnite seguindo o contrato inicial
 ```
 
 ### Fase 7: Deploy local e futuro

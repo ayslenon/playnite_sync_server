@@ -102,7 +102,7 @@ Com o servidor rodando:
 | Método | Rota                         | Descrição                                                                                                       |
 | ------ | ---------------------------- | --------------------------------------------------------------------------------------------------------------- |
 | `POST` | `/api/sync/playnite`         | JSON nativo do Playnite → upsert por `playnite_id`. Mapeia campos, preserva HLTB/notas. Ignora Hidden/frontend. |
-| `GET`  | `/api/sync/playnite/changes` | (futuro) Pull de modificações                                                                                   |
+| `POST` | `/api/sync/playnite/pull`   | Servidor → Playnite por lista de `playnite_ids`, sem alterar plataforma ou fonte.                              |
 
 #### Utilitários
 
@@ -119,6 +119,9 @@ Com o servidor rodando:
 - `coop_type` aceita `list[str]` → serializado como JSON no banco
 - Se `gameplay_status == "Finalizado"` e `replay_score` for `null`, assume `3`
 - `POST /api/sync/playnite` preserva `hltb_*`, `interest_rating`, `replay_score`, `score`, `must_test`, `finish_hours`, `finish_date`
+- `POST /api/sync/playnite/pull` retorna apenas gêneros, status, favorito, `must_test`, vontade (`interest_rating`) e nota final (`replay_score`)
+- O pull não envia nem altera título, plataforma, fonte, observações, imagens, tempo jogado, HLTB ou cooperação
+- `interest_rating` usa a tag existente `[Vontade de Jogar] N`; `replay_score` é convertido para o `UserScore` do Playnite (1–5 → 20–100)
 
 ### Filtros multi-valor
 

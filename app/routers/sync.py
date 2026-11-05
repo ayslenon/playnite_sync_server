@@ -2,7 +2,8 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException
-from sqlmodel import select, Session
+from sqlmodel import func, select, Session
+from sqlalchemy.orm import selectinload
 
 from app.database import get_session
 from app.models import Game, GameGenreLink, Platform, StorageDevice
@@ -13,7 +14,12 @@ from app.routers.games import (
     _resolve_storage_device,
     _resolve_genres,
 )
-from app.schemas import GameCreate, PlayniteSyncPayload
+from app.schemas import (
+    GameCreate,
+    PlaynitePullRequest,
+    PlaynitePullResponse,
+    PlayniteSyncPayload,
+)
 from app.utils.playnite_assets import playnite_asset_url
 
 router = APIRouter(prefix="/api/sync", tags=["sync"])
@@ -285,3 +291,58 @@ def sync_playnite(data: PlayniteSyncPayload, session: Session = Depends(get_sess
 
     session.commit()
     return {"processed": len(results), "skipped": skipped, "results": results}
+
+
+def _playnite_pull_dict(game: Game) -> dict:
+    gameplay_status = game.gameplay_status
+    replay_score = None
+    if (
+        gameplay_status == "Finalizado"
+        and game.replay_score is not None
+        and 1 <= game.replay_score <= 5
+    ):
+        replay_score = game.replay_score
+
+    return {
+        "playnite_id": game.playnite_id,
+        "genres": [genre.name for genre in (game.genres or [])],
+        "gameplay_status": gameplay_status,
+        "favorite": game.favorite,
+        "must_test": game.must_test,
+        "interest_rating": game.interest_rating,
+        "replay_score": replay_score,
+        "updated_at": game.updated_at,
+    }
+
+
+@router.post("/playnite/pull", response_model=PlaynitePullResponse)
+def pull_playnite_games(
+    data: PlaynitePullRequest, session: Session = Depends(get_session)
+):
+    games = session.exec(
+        select(Game)
+        .options(selectinload(Game.genres))
+        .where(
+            func.lower(Game.playnite_id).in_(
+                [playnite_id.casefold() for playnite_id in data.playnite_ids]
+            )
+        )
+    ).all()
+    games_by_id = {game.playnite_id.casefold(): game for game in games}
+
+    result_games = []
+    missing_ids = []
+    for playnite_id in data.playnite_ids:
+        game = games_by_id.get(playnite_id.casefold())
+        if game is None:
+            missing_ids.append(playnite_id)
+            continue
+        result_games.append(_playnite_pull_dict(game))
+
+    return {
+        "requested": len(data.playnite_ids),
+        "found": len(result_games),
+        "not_found": len(missing_ids),
+        "games": result_games,
+        "missing_playnite_ids": missing_ids,
+    }

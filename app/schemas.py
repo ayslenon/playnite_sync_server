@@ -230,3 +230,46 @@ class PlayniteGame(BaseModel):
 
 class PlayniteSyncPayload(BaseModel):
     games: list[PlayniteGame]
+
+
+class PlaynitePullRequest(BaseModel):
+    playnite_ids: list[str] = Field(min_length=1)
+
+    @field_validator("playnite_ids")
+    @classmethod
+    def normalize_ids(cls, values: list[str]) -> list[str]:
+        normalized = []
+        seen = set()
+
+        for value in values:
+            if not isinstance(value, str) or not value.strip():
+                raise ValueError("playnite_ids must contain non-empty strings")
+
+            playnite_id = value.strip()
+            key = playnite_id.casefold()
+            if key not in seen:
+                seen.add(key)
+                normalized.append(playnite_id)
+
+        if not normalized:
+            raise ValueError("playnite_ids must contain at least one ID")
+        return normalized
+
+
+class PlaynitePullGame(BaseModel):
+    playnite_id: str
+    genres: list[str] = Field(default_factory=list)
+    gameplay_status: GAMEPLAY_STATUS
+    favorite: bool
+    must_test: bool
+    interest_rating: int = Field(ge=1, le=5)
+    replay_score: int | None = Field(default=None, ge=1, le=5)
+    updated_at: str
+
+
+class PlaynitePullResponse(BaseModel):
+    requested: int
+    found: int
+    not_found: int
+    games: list[PlaynitePullGame] = Field(default_factory=list)
+    missing_playnite_ids: list[str] = Field(default_factory=list)
