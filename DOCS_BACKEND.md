@@ -174,8 +174,8 @@ CREATE TABLE games (
 
     -- Coop (serializado como JSON string)
     coop_players        TEXT NOT NULL DEFAULT '1 Jogador',
-    coop_type           TEXT NOT NULL DEFAULT '["Um Jogador"]',  -- JSON array
-    coop_screen_type    TEXT NOT NULL DEFAULT 'Tela Inteira',
+    coop_type           TEXT NOT NULL DEFAULT '[]',  -- JSON array
+    coop_screen_type    TEXT NOT NULL DEFAULT 'Tela Compartilhada',
 
     -- Input
     input_recommendation TEXT NOT NULL DEFAULT 'Controle',
@@ -349,8 +349,8 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 			"hltb_main_extra": 102,
 			"hltb_full": 172,
 			"coop_players": "1 Jogador",
-			"coop_type": ["Um Jogador"],
-			"coop_screen_type": "Tela Inteira",
+			"coop_type": [],
+			"coop_screen_type": "Tela Compartilhada",
 			"input_recommendation": "Controle",
 			"playtime_seconds": 0,
 			"notes": "Sensacional.",
@@ -383,7 +383,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 	"favorite": false,
 	"coop_players": "1 Jogador",
 	"coop_type": ["Online"],
-	"coop_screen_type": "Tela Inteira",
+	"coop_screen_type": "Tela Compartilhada",
 	"input_recommendation": "Controle",
 	"hltb_main": 58,
 	"hltb_main_extra": 101,
@@ -584,7 +584,7 @@ Para informações que o Playnite possui e o servidor não (como `install_direct
 | `Source` + `Platforms[]` | `platform`                                  | Ver `_detect_platform()` abaixo                                                                                                                       |
 | `CompletionStatus`       | `gameplay_status`                           | `Playing/Jogando → Jogando`, `Completed/Finalizado → Finalizado`, `Abandoned/Abandonado → Abandonado`, fallback → `Backlog`                            |
 | `Categories[]`           | `coop_type` + `coop_players`                | `"coop local"` ou `"coop emulação"` → `["Sofá"]`, `"coop online"` → `["Online"]`, ambos → `["Online", "Sofá"]`. Qualquer coop → `"2 Jogadores"`       |
-| `Features[]`             | `input_recommendation` + `coop_screen_type` | `"Controller support"` → `"Controle"`, senão `"Teclado/Mouse"`. `"Split screen"` → `"Tela Dividida"`, `"Versus"` → `"Versus"`, senão `"Tela Inteira"` |
+| `Features[]`             | `input_recommendation` + `coop_screen_type` | `"Controller support"` → `"Controle"`, senão `"Teclado/Mouse"`. `"Split screen"` → `"Tela Dividida"`, senão `"Tela Compartilhada"`; `"Versus"` alimenta `multiplayer_mode` independentemente |
 | `CoverImage`             | `cover_url`                                 | Extrai apenas o nome do arquivo e persiste `"/api/covers/playnite/{Id}/{filename}"`, mesmo para caminhos absolutos ou URLs antigas                   |
 | `BackgroundImage`        | `background_url`                            | Mesmo padrão; valor ausente permanece `null`                                                                                                           |
 | `Notes`                  | `notes`                                     | Direto                                                                                                                                                |
@@ -747,7 +747,7 @@ def extract_disk(install_dir: str | None) -> str | None:
 
 ```
 [x] Literal types: gameplay_status, coop_players, coop_screen_type, input_recommendation
-[x] coop_type items validados (Um Jogador, Sofá, Online, LAN)
+[x] coop_type items validados (Sofá, Online, LAN)
 [x] Campos não-negativos: hltb_*, playtime_seconds, finish_hours
 [x] finish_date validado como ISO date
 [x] score vazio convertido para null
@@ -823,3 +823,6 @@ Atualmente o frontend (`FilterBar.jsx`) extrai plataformas, gêneros e discos ú
 | `StatsCard` — HD popup    | Mesmo cálculo manual                                             | `GET /api/games?group_by=storage_device` (ou contar no front) |
 
 Isso significa que o frontend **não precisa mais percorrer a lista inteira de jogos** só para montar os options dos filtros — uma chamada leve de catálogo resolve.
+
+
+`multiplayer_mode` é uma lista independente com `Cooperativo` e/ou `Competitivo/Versus`. A lista `coop_type` aceita Sofá, Online e LAN. Ao iniciar, o servidor migra os registros antigos: `Um Jogador` é removido da lista, `Tela Inteira` vira `Tela Compartilhada` e `Versus` vira modo competitivo com tela compartilhada como padrão, pois a tela original é desconhecida. Tags `[Servidor] Modo: ...` sincronizam os modos com o Playnite.

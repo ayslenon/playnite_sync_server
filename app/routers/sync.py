@@ -137,7 +137,7 @@ def _map_categories(categories: list[str]) -> tuple[list[str], str]:
             players = "2 Jogadores"
 
     if not coop_types:
-        return ["Um Jogador"], "1 Jogador"
+        return [], "1 Jogador"
 
     return sorted(coop_types), players
 
@@ -148,11 +148,9 @@ def _map_features(features: list[str]) -> tuple[str, str]:
     controller = any("controller" in f or "controle" in f for f in feats_lower)
     input_rec = "Controle" if controller else "Teclado/Mouse"
 
-    screen = "Tela Inteira"
+    screen = "Tela Compartilhada"
     if any("split" in f for f in feats_lower):
         screen = "Tela Dividida"
-    elif any("versus" in f for f in feats_lower):
-        screen = "Versus"
 
     return input_rec, screen
 
@@ -211,6 +209,7 @@ def _update_game_from_playnite(session: Session, game: Game, data: GameCreate) -
     game.coop_players = data.coop_players
     game.coop_type = Game.coop_type_str(data.coop_type)
     game.coop_screen_type = data.coop_screen_type
+    game.multiplayer_mode = Game.coop_type_str(data.multiplayer_mode)
     game.input_recommendation = data.input_recommendation
     game.playtime_seconds = data.playtime_seconds
     game.notes = data.notes
@@ -241,18 +240,30 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
     if tag_players:
         coop_players = tag_players
     input_rec, coop_screen = _map_features(item.Features)
+    modes = []
+    if any("coop" in f.lower() or "co-op" in f.lower() for f in item.Features + item.Categories):
+        modes.append("Cooperativo")
+    if any("versus" in f.lower() or "competitive" in f.lower() for f in item.Features + item.Categories):
+        modes.append("Competitivo/Versus")
+    managed_modes = _managed_values(item.Tags, "modo", {"Cooperativo", "Competitivo/Versus", "Nenhum"})
+    if managed_modes:
+        modes = [value for value in managed_modes if value != "Nenhum"]
     managed_coop = _managed_values(item.Tags, "coop", {"Um Jogador", "Sofá", "Online", "LAN", "Nenhum"})
     managed_players = _managed_values(item.Tags, "jogadores", {"1 Jogador", "2 Jogadores", "Até 4 Jogadores", "Mais de 4 Jogadores"})
     managed_input = _managed_values(item.Tags, "input", {"Controle", "Teclado/Mouse", "Ambos"})
-    managed_screen = _managed_values(item.Tags, "tela", {"Tela Inteira", "Tela Dividida", "Versus"})
+    managed_screen = _managed_values(item.Tags, "tela", {"Tela Inteira", "Tela Compartilhada", "Tela Dividida", "Versus"})
     if managed_coop:
-        coop_type = [value for value in managed_coop if value != "Nenhum"]
+        coop_type = [value for value in managed_coop if value not in {"Nenhum", "Um Jogador"}]
     if len(managed_players) == 1:
         coop_players = managed_players[0]
     if len(managed_input) == 1:
         input_rec = managed_input[0]
     if len(managed_screen) == 1:
-        coop_screen = managed_screen[0]
+        if managed_screen[0] == "Versus":
+            if not managed_modes and "Competitivo/Versus" not in modes:
+                modes.append("Competitivo/Versus")
+        else:
+            coop_screen = "Tela Compartilhada" if managed_screen[0] == "Tela Inteira" else managed_screen[0]
 
     cover_url = playnite_asset_url(item.Id, item.CoverImage)
     background_url = playnite_asset_url(item.Id, item.BackgroundImage)
@@ -269,6 +280,7 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
         coop_players=coop_players,
         coop_type=coop_type,
         coop_screen_type=coop_screen,
+        multiplayer_mode=modes,
         input_recommendation=input_rec,
         playtime_seconds=item.Playtime,
         notes=item.Notes,
@@ -340,6 +352,7 @@ def _playnite_pull_dict(game: Game) -> dict:
         "coop_players": game.coop_players,
         "coop_type": game.coop_type_list(),
         "coop_screen_type": game.coop_screen_type,
+        "multiplayer_mode": game.multiplayer_mode_list(),
         "input_recommendation": game.input_recommendation,
         "updated_at": game.updated_at,
     }

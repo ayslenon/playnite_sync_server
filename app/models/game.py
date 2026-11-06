@@ -46,9 +46,11 @@ class Game(SQLModel, table=True):
 
     coop_players: str = Field(default="1 Jogador", nullable=False)
     coop_type: str = Field(
-        default='["Um Jogador"]', sa_column=Column(Text, nullable=False)
+        default='[]', sa_column=Column(Text, nullable=False)
     )
-    coop_screen_type: str = Field(default="Tela Inteira", nullable=False)
+    coop_screen_type: str = Field(default="Tela Compartilhada", nullable=False)
+
+    multiplayer_mode: str = Field(default="[]", sa_column=Column(Text, nullable=False))
 
     input_recommendation: str = Field(default="Controle", nullable=False)
 
@@ -71,12 +73,18 @@ class Game(SQLModel, table=True):
 
     def coop_type_list(self) -> list[str]:
         if not self.coop_type:
-            return ["Um Jogador"]
+            return []
         try:
             return json.loads(self.coop_type)
         except (json.JSONDecodeError, TypeError):
-            return ["Um Jogador"]
+            return []
 
     @staticmethod
     def coop_type_str(value: list[str]) -> str:
         return json.dumps(value, ensure_ascii=False)
+
+    def multiplayer_mode_list(self) -> list[str]:
+        try:
+            return json.loads(self.multiplayer_mode or "[]")
+        except (json.JSONDecodeError, TypeError):
+            return []

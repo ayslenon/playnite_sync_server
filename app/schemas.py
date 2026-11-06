@@ -7,8 +7,8 @@ GAMEPLAY_STATUS = Literal["Backlog", "Jogando", "Finalizado", "Abandonado"]
 COOP_PLAYERS = Literal[
     "1 Jogador", "2 Jogadores", "Até 4 Jogadores", "Mais de 4 Jogadores"
 ]
-COOP_TYPE_ITEMS = {"Um Jogador", "Sofá", "Online", "LAN"}
-COOP_SCREEN_TYPE = Literal["Tela Inteira", "Tela Dividida", "Versus"]
+COOP_TYPE_ITEMS = {"Sofá", "Online", "LAN"}
+COOP_SCREEN_TYPE = Literal["Tela Compartilhada", "Tela Dividida"]
 INPUT_REC = Literal["Controle", "Teclado/Mouse", "Ambos"]
 
 
@@ -47,8 +47,9 @@ class GameCreate(BaseModel):
     hltb_main_extra: float = Field(default=0, ge=0)
     hltb_full: float = Field(default=0, ge=0)
     coop_players: COOP_PLAYERS = "1 Jogador"
-    coop_type: list[str] = ["Um Jogador"]
-    coop_screen_type: COOP_SCREEN_TYPE = "Tela Inteira"
+    coop_type: list[str] = Field(default_factory=list)
+    coop_screen_type: COOP_SCREEN_TYPE = "Tela Compartilhada"
+    multiplayer_mode: list[Literal["Cooperativo", "Competitivo/Versus"]] = Field(default_factory=list)
     input_recommendation: INPUT_REC = "Controle"
     playtime_seconds: int = Field(default=0, ge=0)
     notes: str | None = None
@@ -109,6 +110,7 @@ class GameUpdate(BaseModel):
     coop_players: COOP_PLAYERS | None = None
     coop_type: list[str] | None = None
     coop_screen_type: COOP_SCREEN_TYPE | None = None
+    multiplayer_mode: list[Literal["Cooperativo", "Competitivo/Versus"]] | None = None
     input_recommendation: INPUT_REC | None = None
     playtime_seconds: int | None = Field(default=None, ge=0)
     notes: str | None = None
@@ -255,6 +257,7 @@ class PlaynitePullGame(BaseModel):
     coop_players: COOP_PLAYERS
     coop_type: list[str]
     coop_screen_type: COOP_SCREEN_TYPE
+    multiplayer_mode: list[Literal["Cooperativo", "Competitivo/Versus"]]
     input_recommendation: INPUT_REC
     updated_at: str
 

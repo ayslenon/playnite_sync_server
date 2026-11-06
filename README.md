@@ -282,3 +282,5 @@ Os commits seguem versão semântica (`v1.3.0`). Tanto server quanto dashboard t
 ### Capas da sincronização Playnite
 
 O plugin envia `CoverImage` e `BackgroundImage` como links relativos no formato `/api/covers/playnite/{Id}/{filename}`. O backend também normaliza caminhos absolutos enviados por versões antigas do plugin antes de salvar no banco.
+
+A configuração multiplayer separa modalidades (`coop_type`: Sofá, Online e LAN), tela (`Tela Compartilhada` ou `Tela Dividida`) e modos (`multiplayer_mode`: Cooperativo e/ou Competitivo/Versus). Ao iniciar, o servidor migra automaticamente valores antigos; o antigo `Versus` recebe tela compartilhada por padrão e modo competitivo. A extensão sincroniza modos por tags `[Servidor] Modo: ...`.

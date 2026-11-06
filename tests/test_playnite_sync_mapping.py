@@ -14,9 +14,25 @@ class PlayniteSyncMappingTests(unittest.TestCase):
         result = _playnite_to_gamecreate(None, item)
         self.assertEqual(result.coop_type, ["Sofá", "LAN"])
         self.assertEqual(result.coop_players, "Até 4 Jogadores")
-        self.assertEqual(result.coop_screen_type, "Versus")
+        self.assertEqual(result.coop_screen_type, "Tela Compartilhada")
+        self.assertEqual(result.multiplayer_mode, ["Cooperativo", "Competitivo/Versus"])
         self.assertEqual(result.input_recommendation, "Ambos")
         self.assertEqual(result.notes, "Observação")
+
+    def test_split_and_versus_are_independent(self):
+        item = PlayniteGame(Id="id", Name="Teste", Features=["Split Screen", "Versus", "Co-op"])
+        result = _playnite_to_gamecreate(None, item)
+        self.assertEqual(result.coop_screen_type, "Tela Dividida")
+        self.assertEqual(result.multiplayer_mode, ["Cooperativo", "Competitivo/Versus"])
+
+    def test_managed_modes_override_features_and_preserve_all_modalities(self):
+        item = PlayniteGame(Id="id", Name="Teste", Features=["Versus"], Tags=[
+            "[Servidor] Coop: Sofá", "[Servidor] Coop: Online", "[Servidor] Coop: LAN",
+            "[Servidor] Modo: Cooperativo", "[Servidor] Tela: Tela Dividida"])
+        result = _playnite_to_gamecreate(None, item)
+        self.assertEqual(set(result.coop_type), {"Sofá", "Online", "LAN"})
+        self.assertEqual(result.multiplayer_mode, ["Cooperativo"])
+        self.assertEqual(result.coop_screen_type, "Tela Dividida")
 
     def test_empty_coop_round_trip(self):
         item = PlayniteGame(Id="id", Name="Teste", Tags=["[Servidor] Coop: Nenhum"])

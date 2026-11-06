@@ -18,12 +18,12 @@ from app.main import SEED_PLATFORMS, SEED_STORAGE
 GAME_STATUSES = ["Backlog", "Jogando", "Finalizado", "Abandonado"]
 COOP_PLAYERS = ["1 Jogador", "2 Jogadores", "Até 4 Jogadores", "Mais de 4 Jogadores"]
 COOP_TYPES = {
-    "1 Jogador": ["Um Jogador"],
+    "1 Jogador": [],
     "2 Jogadores": ["Sofá"],
     "Até 4 Jogadores": ["Sofá", "Online"],
     "Mais de 4 Jogadores": ["Online", "LAN"],
 }
-COOP_SCREEN = ["Tela Inteira", "Tela Dividida", "Versus"]
+COOP_SCREEN = ["Tela Compartilhada", "Tela Dividida"]
 INPUT_OPTIONS = ["Controle", "Teclado/Mouse", "Ambos"]
 
 SCORE_OPTIONS = [None, 5, 6, 7, 8, 9, 10, 9.5]
@@ -162,7 +162,7 @@ def _make_game(
         hltb_main_extra=random.randint(0, 120),
         hltb_full=random.randint(0, 200),
         coop_players=coop,
-        coop_type=Game.coop_type_str(COOP_TYPES.get(coop, ["Um Jogador"])),
+        coop_type=Game.coop_type_str(COOP_TYPES.get(coop, [])),
         coop_screen_type=random.choice(COOP_SCREEN),
         input_recommendation=random.choice(INPUT_OPTIONS),
         playtime_seconds=random.randint(0, 500000),

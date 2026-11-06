@@ -82,6 +82,7 @@ def _game_to_dict(game: Game) -> dict:
         "coop_players": game.coop_players,
         "coop_type": game.coop_type_list(),
         "coop_screen_type": game.coop_screen_type,
+        "multiplayer_mode": game.multiplayer_mode_list(),
         "input_recommendation": game.input_recommendation,
         "playtime_seconds": game.playtime_seconds,
         "notes": game.notes,
@@ -292,6 +293,7 @@ def _create_single_game(session: Session, data: GameCreate) -> Game:
         coop_players=data.coop_players,
         coop_type=Game.coop_type_str(data.coop_type),
         coop_screen_type=data.coop_screen_type,
+        multiplayer_mode=Game.coop_type_str(data.multiplayer_mode),
         input_recommendation=data.input_recommendation,
         playtime_seconds=data.playtime_seconds,
         notes=data.notes,
@@ -336,6 +338,7 @@ def _update_game_from_create(session: Session, game: Game, data: GameCreate) -> 
     game.coop_players = data.coop_players
     game.coop_type = Game.coop_type_str(data.coop_type)
     game.coop_screen_type = data.coop_screen_type
+    game.multiplayer_mode = Game.coop_type_str(data.multiplayer_mode)
     game.input_recommendation = data.input_recommendation
     game.playtime_seconds = data.playtime_seconds
     game.notes = data.notes
@@ -474,6 +477,9 @@ def update_game(
     for field, value in scalar_fields.items():
         if value is not None:
             setattr(game, field, value)
+
+    if data.multiplayer_mode is not None:
+        game.multiplayer_mode = Game.coop_type_str(data.multiplayer_mode)
 
     if data.coop_type is not None:
         game.coop_type = Game.coop_type_str(data.coop_type)
