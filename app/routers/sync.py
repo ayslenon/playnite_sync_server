@@ -142,17 +142,11 @@ def _map_categories(categories: list[str]) -> tuple[list[str], str]:
     return sorted(coop_types), players
 
 
-def _map_features(features: list[str]) -> tuple[str, str]:
+def _map_features(features: list[str]) -> str:
     feats_lower = {f.strip().lower() for f in features}
 
     controller = any("controller" in f or "controle" in f for f in feats_lower)
-    input_rec = "Controle" if controller else "Teclado/Mouse"
-
-    screen = "Tela Compartilhada"
-    if any("split" in f for f in feats_lower):
-        screen = "Tela Dividida"
-
-    return input_rec, screen
+    return "Controle" if controller else "Teclado/Mouse"
 
 
 PLAYER_TAG_MAP = {
@@ -208,7 +202,6 @@ def _update_game_from_playnite(session: Session, game: Game, data: GameCreate) -
     game.gameplay_status = data.gameplay_status
     game.coop_players = data.coop_players
     game.coop_type = Game.coop_type_str(data.coop_type)
-    game.coop_screen_type = data.coop_screen_type
     game.multiplayer_mode = Game.coop_type_str(data.multiplayer_mode)
     game.input_recommendation = data.input_recommendation
     game.playtime_seconds = data.playtime_seconds
@@ -239,7 +232,7 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
     tag_players = _map_tags_coop_players(item.Tags)
     if tag_players:
         coop_players = tag_players
-    input_rec, coop_screen = _map_features(item.Features)
+    input_rec = _map_features(item.Features)
     modes = []
     if any("coop" in f.lower() or "co-op" in f.lower() for f in item.Features + item.Categories):
         modes.append("Cooperativo")
@@ -251,20 +244,12 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
     managed_coop = _managed_values(item.Tags, "coop", {"Um Jogador", "Sofá", "Online", "LAN", "Nenhum"})
     managed_players = _managed_values(item.Tags, "jogadores", {"1 Jogador", "2 Jogadores", "Até 4 Jogadores", "Mais de 4 Jogadores"})
     managed_input = _managed_values(item.Tags, "input", {"Controle", "Teclado/Mouse", "Ambos"})
-    managed_screen = _managed_values(item.Tags, "tela", {"Tela Inteira", "Tela Compartilhada", "Tela Dividida", "Versus"})
     if managed_coop:
         coop_type = [value for value in managed_coop if value not in {"Nenhum", "Um Jogador"}]
     if len(managed_players) == 1:
         coop_players = managed_players[0]
     if len(managed_input) == 1:
         input_rec = managed_input[0]
-    if len(managed_screen) == 1:
-        if managed_screen[0] == "Versus":
-            if not managed_modes and "Competitivo/Versus" not in modes:
-                modes.append("Competitivo/Versus")
-        else:
-            coop_screen = "Tela Compartilhada" if managed_screen[0] == "Tela Inteira" else managed_screen[0]
-
     cover_url = playnite_asset_url(item.Id, item.CoverImage)
     background_url = playnite_asset_url(item.Id, item.BackgroundImage)
 
@@ -279,7 +264,6 @@ def _playnite_to_gamecreate(session: Session, item) -> GameCreate | None:
         gameplay_status=status,
         coop_players=coop_players,
         coop_type=coop_type,
-        coop_screen_type=coop_screen,
         multiplayer_mode=modes,
         input_recommendation=input_rec,
         playtime_seconds=item.Playtime,
@@ -330,29 +314,19 @@ def sync_playnite(data: PlayniteSyncPayload, session: Session = Depends(get_sess
 
 
 def _playnite_pull_dict(game: Game) -> dict:
-    gameplay_status = game.gameplay_status
-    replay_score = None
-    if (
-        gameplay_status == "Finalizado"
-        and game.replay_score is not None
-        and 1 <= game.replay_score <= 5
-    ):
-        replay_score = game.replay_score
-
+    is_single_player = game.coop_players == "1 Jogador"
     return {
         "playnite_id": game.playnite_id,
         "genres": [genre.name for genre in (game.genres or [])],
-        "gameplay_status": gameplay_status,
+        "gameplay_status": game.gameplay_status,
         "favorite": game.favorite,
         "must_test": game.must_test,
         "interest_rating": game.interest_rating,
-        "replay_score": replay_score,
         "score": game.score,
         "notes": game.notes,
         "coop_players": game.coop_players,
-        "coop_type": game.coop_type_list(),
-        "coop_screen_type": game.coop_screen_type,
-        "multiplayer_mode": game.multiplayer_mode_list(),
+        "coop_type": [] if is_single_player else game.coop_type_list(),
+        "multiplayer_mode": [] if is_single_player else game.multiplayer_mode_list(),
         "input_recommendation": game.input_recommendation,
         "updated_at": game.updated_at,
     }

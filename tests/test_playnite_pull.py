@@ -11,9 +11,11 @@ def make_game(
     playnite_id,
     *,
     status="Jogando",
-    replay_score=4,
     score=8.0,
     genres=None,
+    coop_players="Até 4 Jogadores",
+    coop_types=None,
+    multiplayer_modes=None,
 ):
     return SimpleNamespace(
         playnite_id=playnite_id,
@@ -22,13 +24,11 @@ def make_game(
         favorite=True,
         must_test=False,
         interest_rating=5,
-        replay_score=replay_score,
         score=score,
         notes="Minha nota",
-        coop_players="Até 4 Jogadores",
-        coop_type_list=lambda: ["Sofá", "Online"],
-        multiplayer_mode_list=lambda: ["Cooperativo", "Competitivo/Versus"],
-        coop_screen_type="Tela Dividida",
+        coop_players=coop_players,
+        coop_type_list=lambda: coop_types if coop_types is not None else ["Sofá", "Online"],
+        multiplayer_mode_list=lambda: multiplayer_modes if multiplayer_modes is not None else ["Cooperativo", "Competitivo/Versus"],
         input_recommendation="Ambos",
         updated_at="2026-08-23T12:00:00+00:00",
     )
@@ -75,20 +75,9 @@ class PlaynitePullTests(unittest.TestCase):
         )
         self.assertEqual(result["missing_playnite_ids"], ["id-missing"])
 
-    def test_pull_hides_replay_score_for_non_finalized_games(self):
-        session = FakeSession([make_game("id-1", status="Jogando", replay_score=4)])
-
-        result = pull_playnite_games(
-            PlaynitePullRequest(playnite_ids=["id-1"]),
-            session,
-        )
-
-        self.assertIsNone(result["games"][0]["replay_score"])
-        self.assertEqual(result["games"][0]["genres"], [])
-
     def test_pull_returns_final_score_and_only_active_fields(self):
         session = FakeSession(
-            [make_game("id-1", status="Finalizado", replay_score=4, score=9.5)]
+            [make_game("id-1", status="Finalizado", score=9.5)]
         )
 
         result = pull_playnite_games(
@@ -97,7 +86,6 @@ class PlaynitePullTests(unittest.TestCase):
         )
 
         game = result["games"][0]
-        self.assertEqual(game["replay_score"], 4)
         self.assertEqual(game["score"], 9.5)
         self.assertEqual(game["notes"], "Minha nota")
         self.assertEqual(game["coop_type"], ["Sofá", "Online"])
@@ -110,17 +98,34 @@ class PlaynitePullTests(unittest.TestCase):
                 "favorite",
                 "must_test",
                 "interest_rating",
-                "replay_score",
                 "score",
                 "notes",
                 "coop_players",
                 "coop_type",
-                "coop_screen_type",
                 "multiplayer_mode",
                 "input_recommendation",
                 "updated_at",
             },
         )
+
+    def test_pull_hides_inconsistent_multiplayer_data_for_single_player(self):
+        session = FakeSession([
+            make_game(
+                "id-1",
+                coop_players="1 Jogador",
+                coop_types=["Sofá"],
+                multiplayer_modes=["Competitivo/Versus"],
+            )
+        ])
+
+        result = pull_playnite_games(
+            PlaynitePullRequest(playnite_ids=["id-1"]),
+            session,
+        )
+
+        game = result["games"][0]
+        self.assertEqual(game["coop_type"], [])
+        self.assertEqual(game["multiplayer_mode"], [])
 
 
 

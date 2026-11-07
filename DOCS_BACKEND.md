@@ -158,7 +158,6 @@ CREATE TABLE games (
     -- Gameplay
     gameplay_status     TEXT NOT NULL DEFAULT 'Backlog',  -- Backlog | Jogando | Finalizado | Abandonado
     interest_rating     INTEGER NOT NULL DEFAULT 3,       -- 1-5
-    replay_score        INTEGER,                          -- 1-5 (NULL se não finalizado)
     score               TEXT,                              -- "9/10", "8.5"
     must_test           INTEGER NOT NULL DEFAULT 0,       -- BOOL
     favorite            INTEGER NOT NULL DEFAULT 0,       -- BOOL
@@ -175,7 +174,7 @@ CREATE TABLE games (
     -- Coop (serializado como JSON string)
     coop_players        TEXT NOT NULL DEFAULT '1 Jogador',
     coop_type           TEXT NOT NULL DEFAULT '[]',  -- JSON array
-    coop_screen_type    TEXT NOT NULL DEFAULT 'Tela Compartilhada',
+    multiplayer_mode    TEXT NOT NULL DEFAULT '[]',  -- JSON array
 
     -- Input
     input_recommendation TEXT NOT NULL DEFAULT 'Controle',
@@ -273,7 +272,6 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 - Se `platform.name` não existe em `platforms`, **cria automaticamente** antes de associar
 - Se `storage_device.name` não existe em `storage_devices`, **cria automaticamente**
 - Se `genres[].name` não existe em `genres`, **cria cada um automaticamente**
-- Se `gameplay_status == "Finalizado"` e `replay_score` for `null`, define como `3` (neutro)
 - `coop_type` aceita `list[str]` e converte para JSON string ao salvar
 
 ### 5.2 Catálogos (para alimentar selects do frontend)
@@ -339,7 +337,6 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 			"storage_device": { "id": 1, "name": "SSD Windows" },
 			"gameplay_status": "Jogando",
 			"interest_rating": 5,
-			"replay_score": null,
 			"score": null,
 			"must_test": false,
 			"favorite": false,
@@ -350,7 +347,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 			"hltb_full": 172,
 			"coop_players": "1 Jogador",
 			"coop_type": [],
-			"coop_screen_type": "Tela Compartilhada",
+			"multiplayer_mode": [],
 			"input_recommendation": "Controle",
 			"playtime_seconds": 0,
 			"notes": "Sensacional.",
@@ -383,7 +380,7 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 	"favorite": false,
 	"coop_players": "1 Jogador",
 	"coop_type": ["Online"],
-	"coop_screen_type": "Tela Compartilhada",
+	"multiplayer_mode": ["Cooperativo"],
 	"input_recommendation": "Controle",
 	"hltb_main": 58,
 	"hltb_main_extra": 101,
@@ -447,7 +444,6 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
       "favorite": true,
       "must_test": false,
       "interest_rating": 5,
-      "replay_score": 4,
       "score": "9.5/10",
       "updated_at": "2026-08-23T12:00:00+00:00"
     }
@@ -456,9 +452,8 @@ PC (Steam), PC (Epic), PC (GOG), PC (EA), PC (Ubisoft), 3DS, DS, GBA, N64, GameC
 }
 ```
 
-O pull não altera o banco e retorna observações, cooperação, jogadores, tela e input.
-Não retorna plataforma, fonte, título, imagens, tempo jogado ou HLTB. `replay_score` só é retornado quando
-o status é `Finalizado`. `score` é normalizado para `x/10`; valores vazios,
+O pull não altera o banco e retorna observações, cooperação, jogadores, modos e input.
+Não retorna plataforma, fonte, título, imagens, tempo jogado ou HLTB. `score` é normalizado para `x/10`; valores vazios,
 inválidos ou fora de 0–10 são retornados como `null`.
 
 ### 6.5 GET `/api/genres` (Lista catálogos)
@@ -494,11 +489,10 @@ inválidos ou fora de 0–10 são retornados como `null`.
 - **Servidor é a fonte da verdade para o pull ativo.** Gêneros, status, favorito, vontades, precisa testar e nota pessoal prevalecem sobre os valores do Playnite quando o valor remoto é válido.
 - **Direção do sync:** Servidor → Playnite (o servidor exporta, a extensão C# importa no Playnite).
 - `interest_rating` representa vontade de jogar e é mantido na tag existente `[Vontade de Jogar] N`.
-- `replay_score` representa vontade de rejogar e é mantido na tag `[Vontade de Rejogar] N` (1–5).
 - `score` representa a nota pessoal, é enviado como `x/10` e convertido para o `UserScore` nativo do Playnite (0–100). Se ausente ou inválido, a nota local é preservada.
 - Metadados (`release_date`, `developers`, `publishers`) **não são armazenados** no servidor.
 - `playtime_seconds` é armazenado mas sem regra de negócio vinculada a `finish_hours`.
-- Plataforma, fonte, título, imagens, tempo jogado e HLTB não são alterados pelo pull. Cooperação, jogadores, tela e input usam tags com prefixo `[Servidor]`; o upload reconhece essas tags. Notas usam o campo nativo do Playnite. O último fluxo executado prevalece.
+- Plataforma, fonte, título, imagens, tempo jogado e HLTB não são alterados pelo pull. Cooperação, jogadores, modos e input usam tags com prefixo `[Servidor]`; o upload reconhece essas tags. Notas usam o campo nativo do Playnite. O último fluxo executado prevalece.
 
 ### Contrato: Servidor → Extensão C# (Pull)
 
@@ -521,7 +515,6 @@ A extensão C# envia os IDs dos jogos selecionados e recebe os dados controlados
 			"favorite": true,
 			"must_test": false,
 			"interest_rating": 5,
-			"replay_score": 4,
 			"score": "9.5/10",
 			"updated_at": "2026-08-23T12:00:00+00:00"
 		}
@@ -584,7 +577,7 @@ Para informações que o Playnite possui e o servidor não (como `install_direct
 | `Source` + `Platforms[]` | `platform`                                  | Ver `_detect_platform()` abaixo                                                                                                                       |
 | `CompletionStatus`       | `gameplay_status`                           | `Playing/Jogando → Jogando`, `Completed/Finalizado → Finalizado`, `Abandoned/Abandonado → Abandonado`, fallback → `Backlog`                            |
 | `Categories[]`           | `coop_type` + `coop_players`                | `"coop local"` ou `"coop emulação"` → `["Sofá"]`, `"coop online"` → `["Online"]`, ambos → `["Online", "Sofá"]`. Qualquer coop → `"2 Jogadores"`       |
-| `Features[]`             | `input_recommendation` + `coop_screen_type` | `"Controller support"` → `"Controle"`, senão `"Teclado/Mouse"`. `"Split screen"` → `"Tela Dividida"`, senão `"Tela Compartilhada"`; `"Versus"` alimenta `multiplayer_mode` independentemente |
+| `Features[]`             | `input_recommendation` + `multiplayer_mode` | `"Controller support"` → `"Controle"`, senão `"Teclado/Mouse"`; coop e versus alimentam `multiplayer_mode` independentemente |
 | `CoverImage`             | `cover_url`                                 | Extrai apenas o nome do arquivo e persiste `"/api/covers/playnite/{Id}/{filename}"`, mesmo para caminhos absolutos ou URLs antigas                   |
 | `BackgroundImage`        | `background_url`                            | Mesmo padrão; valor ausente permanece `null`                                                                                                           |
 | `Notes`                  | `notes`                                     | Direto                                                                                                                                                |
@@ -607,7 +600,7 @@ Para informações que o Playnite possui e o servidor não (como `install_direct
    c. Busca por playnite_id
    d. Se achar: _update_game_from_playnite() — atualiza apenas campos
       que o Playnite conhece (NÃO mexe em hltb_*, interest_rating,
-      replay_score, score, must_test, finish_hours, finish_date)
+      score, must_test, finish_hours, finish_date)
    e. Se não achar: cria registro completo com todos os campos mapeados
    f. Extrai disco via StorageDevice.drive_letter
 
@@ -746,12 +739,11 @@ def extract_disk(install_dir: str | None) -> str | None:
 ### ✅ Validação Pydantic (concluído)
 
 ```
-[x] Literal types: gameplay_status, coop_players, coop_screen_type, input_recommendation
+[x] Literal types: gameplay_status, coop_players, input_recommendation
 [x] coop_type items validados (Sofá, Online, LAN)
 [x] Campos não-negativos: hltb_*, playtime_seconds, finish_hours
 [x] finish_date validado como ISO date
 [x] score vazio convertido para null
-[x] Cross-field: se Finalizado, replay_score default = 3
 [x] PlayniteSyncEntry + PlayniteSyncRequest schemas
 [x] Timeout de 15s no fetch do frontend via AbortController
 ```
@@ -781,9 +773,9 @@ def extract_disk(install_dir: str | None) -> str | None:
 [x] Implementar POST /api/sync/playnite/pull (pull: servidor → Playnite)
 [x] Implementar POST /api/sync/playnite (push: Playnite → servidor)
     - Mapeamento completo: playnite_id, title, platform, genres, gameplay_status,
-      coop_type, coop_players, coop_screen_type, input_recommendation,
+      coop_type, coop_players, multiplayer_mode, input_recommendation,
       playtime_seconds, storage_device, cover_url, background_url, notes
-    - _update_game_from_playnite: preserva hltb_*, interest_rating, replay_score,
+    - _update_game_from_playnite: preserva hltb_*, interest_rating,
       score, must_test, finish_hours, finish_date
     - Skip: jogos ocultos (Hidden) e frontend launcher
     - _detect_platform com SOURCE_MAP + PLATFORM_MAP (case-insensitive)
@@ -825,4 +817,4 @@ Atualmente o frontend (`FilterBar.jsx`) extrai plataformas, gêneros e discos ú
 Isso significa que o frontend **não precisa mais percorrer a lista inteira de jogos** só para montar os options dos filtros — uma chamada leve de catálogo resolve.
 
 
-`multiplayer_mode` é uma lista independente com `Cooperativo` e/ou `Competitivo/Versus`. A lista `coop_type` aceita Sofá, Online e LAN. Ao iniciar, o servidor migra os registros antigos: `Um Jogador` é removido da lista, `Tela Inteira` vira `Tela Compartilhada` e `Versus` vira modo competitivo com tela compartilhada como padrão, pois a tela original é desconhecida. Tags `[Servidor] Modo: ...` sincronizam os modos com o Playnite.
+`multiplayer_mode` é uma lista independente com `Cooperativo` e/ou `Competitivo/Versus`. A lista `coop_type` aceita Sofá, Online e LAN. Ao iniciar, o servidor remove `Um Jogador` da lista, converte o antigo valor de tela `Versus` em modo competitivo e elimina as colunas descontinuadas. Tags `[Servidor] Modo: ...` sincronizam os modos com o Playnite.

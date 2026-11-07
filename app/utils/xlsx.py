@@ -18,7 +18,6 @@ HEADERS = [
     ("Armazenamento", 20),
     ("Vontade", 10),
     ("Nota", 8),
-    ("Replay", 8),
     ("Horas Jogadas", 14),
     ("HLTB Principal", 14),
     ("HLTB Extra", 12),
@@ -28,7 +27,6 @@ HEADERS = [
     ("Precisa Testar", 14),
     ("Jogadores", 18),
     ("Tipo Coop", 16),
-    ("Tela Coop", 20),
     ("Modo multiplayer", 28),
     ("Input Recomendado", 18),
     ("Notas", 40),
@@ -123,7 +121,6 @@ def export_games(session: Session) -> BytesIO:
             storage_name,
             game.interest_rating,
             game.score if game.score is not None else "",
-            game.replay_score or "",
             _format_playtime(game.playtime_seconds),
             int(game.hltb_main) if game.hltb_main else "",
             int(game.hltb_main_extra) if game.hltb_main_extra else "",
@@ -133,7 +130,6 @@ def export_games(session: Session) -> BytesIO:
             "Sim" if game.must_test else "",
             game.coop_players,
             ", ".join(coop_types) if coop_types else "",
-            game.coop_screen_type,
             ", ".join(game.multiplayer_mode_list()),
             game.input_recommendation,
             game.notes or "",
@@ -146,7 +142,7 @@ def export_games(session: Session) -> BytesIO:
             cell.font = BODY_FONT
             cell.border = THIN_BORDER
             cell.alignment = Alignment(
-                horizontal="center" if col_idx in (6, 7, 8, 15) else "left",
+                horizontal="center" if col_idx in (6, 7, 14) else "left",
                 vertical="center",
             )
 

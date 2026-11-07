@@ -70,7 +70,6 @@ def _game_to_dict(game: Game) -> dict:
         ),
         "gameplay_status": game.gameplay_status,
         "interest_rating": game.interest_rating,
-        "replay_score": game.replay_score,
         "score": game.score,
         "must_test": game.must_test,
         "favorite": game.favorite,
@@ -81,7 +80,6 @@ def _game_to_dict(game: Game) -> dict:
         "hltb_full": game.hltb_full,
         "coop_players": game.coop_players,
         "coop_type": game.coop_type_list(),
-        "coop_screen_type": game.coop_screen_type,
         "multiplayer_mode": game.multiplayer_mode_list(),
         "input_recommendation": game.input_recommendation,
         "playtime_seconds": game.playtime_seconds,
@@ -281,7 +279,6 @@ def _create_single_game(session: Session, data: GameCreate) -> Game:
         storage_device_id=storage_device.id if storage_device else None,
         gameplay_status=data.gameplay_status,
         interest_rating=data.interest_rating,
-        replay_score=data.replay_score,
         score=data.score,
         must_test=data.must_test,
         favorite=data.favorite,
@@ -292,7 +289,6 @@ def _create_single_game(session: Session, data: GameCreate) -> Game:
         hltb_full=data.hltb_full,
         coop_players=data.coop_players,
         coop_type=Game.coop_type_str(data.coop_type),
-        coop_screen_type=data.coop_screen_type,
         multiplayer_mode=Game.coop_type_str(data.multiplayer_mode),
         input_recommendation=data.input_recommendation,
         playtime_seconds=data.playtime_seconds,
@@ -300,9 +296,6 @@ def _create_single_game(session: Session, data: GameCreate) -> Game:
         created_at=now,
         updated_at=now,
     )
-
-    if game.gameplay_status == "Finalizado" and game.replay_score is None:
-        game.replay_score = 3
 
     session.add(game)
     session.flush()
@@ -326,7 +319,6 @@ def _update_game_from_create(session: Session, game: Game, data: GameCreate) -> 
     game.storage_device_id = storage_device.id if storage_device else None
     game.gameplay_status = data.gameplay_status
     game.interest_rating = data.interest_rating
-    game.replay_score = data.replay_score
     game.score = data.score
     game.must_test = data.must_test
     game.favorite = data.favorite
@@ -337,15 +329,11 @@ def _update_game_from_create(session: Session, game: Game, data: GameCreate) -> 
     game.hltb_full = data.hltb_full
     game.coop_players = data.coop_players
     game.coop_type = Game.coop_type_str(data.coop_type)
-    game.coop_screen_type = data.coop_screen_type
     game.multiplayer_mode = Game.coop_type_str(data.multiplayer_mode)
     game.input_recommendation = data.input_recommendation
     game.playtime_seconds = data.playtime_seconds
     game.notes = data.notes
     game.updated_at = datetime.now(timezone.utc).isoformat()
-
-    if game.gameplay_status == "Finalizado" and game.replay_score is None:
-        game.replay_score = 3
 
     existing_links = session.exec(
         select(GameGenreLink).where(GameGenreLink.game_id == game.id)
@@ -459,7 +447,6 @@ def update_game(
         "background_url": data.background_url,
         "gameplay_status": data.gameplay_status,
         "interest_rating": data.interest_rating,
-        "replay_score": data.replay_score,
         "score": data.score,
         "must_test": data.must_test,
         "favorite": data.favorite,
@@ -469,7 +456,6 @@ def update_game(
         "hltb_main_extra": data.hltb_main_extra,
         "hltb_full": data.hltb_full,
         "coop_players": data.coop_players,
-        "coop_screen_type": data.coop_screen_type,
         "input_recommendation": data.input_recommendation,
         "notes": data.notes,
         "playtime_seconds": data.playtime_seconds,
@@ -484,8 +470,11 @@ def update_game(
     if data.coop_type is not None:
         game.coop_type = Game.coop_type_str(data.coop_type)
 
-    if game.gameplay_status == "Finalizado" and game.replay_score is None:
-        game.replay_score = 3
+    # "1 Jogador" is the canonical single-player state. Keep the invariant even
+    # when a partial update only sends one of the multiplayer fields.
+    if game.coop_players == "1 Jogador":
+        game.coop_type = Game.coop_type_str([])
+        game.multiplayer_mode = Game.coop_type_str([])
 
     game.updated_at = datetime.now(timezone.utc).isoformat()
     session.add(game)

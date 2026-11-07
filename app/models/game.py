@@ -32,7 +32,6 @@ class Game(SQLModel, table=True):
 
     gameplay_status: str = Field(default="Backlog", nullable=False)
     interest_rating: int = Field(default=3, nullable=False)
-    replay_score: int | None = Field(default=None)
     score: float | None = Field(default=None)
     must_test: bool = Field(default=False, nullable=False)
     favorite: bool = Field(default=False, nullable=False)
@@ -48,8 +47,6 @@ class Game(SQLModel, table=True):
     coop_type: str = Field(
         default='[]', sa_column=Column(Text, nullable=False)
     )
-    coop_screen_type: str = Field(default="Tela Compartilhada", nullable=False)
-
     multiplayer_mode: str = Field(default="[]", sa_column=Column(Text, nullable=False))
 
     input_recommendation: str = Field(default="Controle", nullable=False)

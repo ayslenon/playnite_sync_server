@@ -117,14 +117,13 @@ Com o servidor rodando:
 
 - `platform`, `genres`, `storage_device` são **auto-criados** se não existirem
 - `coop_type` aceita `list[str]` → serializado como JSON no banco
-- Se `gameplay_status == "Finalizado"` e `replay_score` for `null`, assume `3`
-- `POST /api/sync/playnite` preserva `hltb_*`, `interest_rating`, `replay_score`, `score`, `must_test`, `finish_hours`, `finish_date`
+- `POST /api/sync/playnite` preserva `hltb_*`, `interest_rating`, `score`, `must_test`, `finish_hours`, `finish_date`
 - `POST /api/sync/playnite/pull` também retorna observações, cooperação, jogadores, tela e input, além dos demais campos sincronizados.
 - No Playnite, cooperação, jogadores, tela e input usam tags `[Servidor] Coop: ...`, `[Servidor] Jogadores: ...`, `[Servidor] Tela: ...` e `[Servidor] Input: ...`. Outras tags, categorias e recursos são preservados; no upload essas tags têm prioridade sobre o mapeamento legado.
 - Upload e downlink são manuais: o último executado prevalece para os campos compartilhados. Faça downlink antes de enviar dados antigos do Playnite, para não sobrescrever alterações da dashboard.
 - O pull não altera título, plataforma, fonte, imagens, tempo jogado ou HLTB.
 - `score` é um número de 0 a 10 ou `null`; o pull envia o mesmo número e a extensão converte para o `UserScore` de 0–100. Atualize servidor, dashboard e plugin juntos.
-- `interest_rating` usa `[Vontade de Jogar] N`; `replay_score` usa `[Vontade de Rejogar] N` e não interfere mais no `UserScore`
+- `interest_rating` usa `[Vontade de Jogar] N`; a extensão remove automaticamente as antigas tags de vontade de rejogar.
 
 ### Filtros multi-valor
 
@@ -283,4 +282,4 @@ Os commits seguem versão semântica (`v1.3.0`). Tanto server quanto dashboard t
 
 O plugin envia `CoverImage` e `BackgroundImage` como links relativos no formato `/api/covers/playnite/{Id}/{filename}`. O backend também normaliza caminhos absolutos enviados por versões antigas do plugin antes de salvar no banco.
 
-A configuração multiplayer separa modalidades (`coop_type`: Sofá, Online e LAN), tela (`Tela Compartilhada` ou `Tela Dividida`) e modos (`multiplayer_mode`: Cooperativo e/ou Competitivo/Versus). Ao iniciar, o servidor migra automaticamente valores antigos; o antigo `Versus` recebe tela compartilhada por padrão e modo competitivo. A extensão sincroniza modos por tags `[Servidor] Modo: ...`.
+A configuração multiplayer separa modalidades (`coop_type`: Sofá, Online e LAN) e modos (`multiplayer_mode`: Cooperativo e/ou Competitivo/Versus). Ao iniciar, o servidor migra automaticamente o antigo valor de tela `Versus` para modo competitivo e remove a coluna de tela. A extensão sincroniza modos por tags `[Servidor] Modo: ...`.

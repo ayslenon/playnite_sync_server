@@ -8,7 +8,6 @@ COOP_PLAYERS = Literal[
     "1 Jogador", "2 Jogadores", "Até 4 Jogadores", "Mais de 4 Jogadores"
 ]
 COOP_TYPE_ITEMS = {"Sofá", "Online", "LAN"}
-COOP_SCREEN_TYPE = Literal["Tela Compartilhada", "Tela Dividida"]
 INPUT_REC = Literal["Controle", "Teclado/Mouse", "Ambos"]
 
 
@@ -37,7 +36,6 @@ class GameCreate(BaseModel):
     storage_device: str | None = None
     gameplay_status: GAMEPLAY_STATUS = "Backlog"
     interest_rating: int = Field(default=3, ge=1, le=5)
-    replay_score: int | None = Field(default=None, ge=1, le=5)
     score: float | None = Field(default=None, ge=0, le=10, allow_inf_nan=False)
     must_test: bool = False
     favorite: bool = False
@@ -48,7 +46,6 @@ class GameCreate(BaseModel):
     hltb_full: float = Field(default=0, ge=0)
     coop_players: COOP_PLAYERS = "1 Jogador"
     coop_type: list[str] = Field(default_factory=list)
-    coop_screen_type: COOP_SCREEN_TYPE = "Tela Compartilhada"
     multiplayer_mode: list[Literal["Cooperativo", "Competitivo/Versus"]] = Field(default_factory=list)
     input_recommendation: INPUT_REC = "Controle"
     playtime_seconds: int = Field(default=0, ge=0)
@@ -82,12 +79,11 @@ class GameCreate(BaseModel):
         return validate_iso_date(v)
 
     @model_validator(mode="after")
-    def validate_finalized(self):
-        if self.gameplay_status == "Finalizado":
-            if self.replay_score is None:
-                self.replay_score = 3
+    def normalize_single_player_multiplayer(self):
+        if self.coop_players == "1 Jogador":
+            self.coop_type = []
+            self.multiplayer_mode = []
         return self
-
 
 class GameUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1)
@@ -98,7 +94,6 @@ class GameUpdate(BaseModel):
     storage_device: str | None = None
     gameplay_status: GAMEPLAY_STATUS | None = None
     interest_rating: int | None = Field(default=None, ge=1, le=5)
-    replay_score: int | None = Field(default=None, ge=1, le=5)
     score: float | None = Field(default=None, ge=0, le=10, allow_inf_nan=False)
     must_test: bool | None = None
     favorite: bool | None = None
@@ -109,7 +104,6 @@ class GameUpdate(BaseModel):
     hltb_full: float | None = Field(default=None, ge=0)
     coop_players: COOP_PLAYERS | None = None
     coop_type: list[str] | None = None
-    coop_screen_type: COOP_SCREEN_TYPE | None = None
     multiplayer_mode: list[Literal["Cooperativo", "Competitivo/Versus"]] | None = None
     input_recommendation: INPUT_REC | None = None
     playtime_seconds: int | None = Field(default=None, ge=0)
@@ -144,6 +138,13 @@ class GameUpdate(BaseModel):
     @classmethod
     def check_finish_date(cls, v: str | None) -> str | None:
         return validate_iso_date(v)
+
+    @model_validator(mode="after")
+    def normalize_single_player_multiplayer(self):
+        if self.coop_players == "1 Jogador":
+            self.coop_type = []
+            self.multiplayer_mode = []
+        return self
 
 
 class BatchCreateRequest(BaseModel):
@@ -251,12 +252,10 @@ class PlaynitePullGame(BaseModel):
     favorite: bool
     must_test: bool
     interest_rating: int = Field(ge=1, le=5)
-    replay_score: int | None = Field(default=None, ge=1, le=5)
     score: float | None = Field(default=None, ge=0, le=10, allow_inf_nan=False)
     notes: str | None = None
     coop_players: COOP_PLAYERS
     coop_type: list[str]
-    coop_screen_type: COOP_SCREEN_TYPE
     multiplayer_mode: list[Literal["Cooperativo", "Competitivo/Versus"]]
     input_recommendation: INPUT_REC
     updated_at: str

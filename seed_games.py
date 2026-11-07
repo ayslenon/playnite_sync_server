@@ -23,7 +23,6 @@ COOP_TYPES = {
     "Até 4 Jogadores": ["Sofá", "Online"],
     "Mais de 4 Jogadores": ["Online", "LAN"],
 }
-COOP_SCREEN = ["Tela Compartilhada", "Tela Dividida"]
 INPUT_OPTIONS = ["Controle", "Teclado/Mouse", "Ambos"]
 
 SCORE_OPTIONS = [None, 5, 6, 7, 8, 9, 10, 9.5]
@@ -137,12 +136,10 @@ def _make_game(
     finish_hours = None
     finish_date = None
     score = None
-    replay_score = None
     if status == "Finalizado":
         finish_hours = round(random.uniform(2, 120), 1)
         finish_date = now
         score = random.choice(SCORE_OPTIONS)
-        replay_score = random.randint(1, 5)
 
     game = Game(
         id=uuid.uuid4().hex[:12],
@@ -153,7 +150,6 @@ def _make_game(
         storage_device_id=devices[device].id if device else None,
         gameplay_status=status,
         interest_rating=random.randint(1, 5),
-        replay_score=replay_score,
         score=score,
         must_test=random.random() < 0.15,
         finish_hours=finish_hours,
@@ -163,7 +159,6 @@ def _make_game(
         hltb_full=random.randint(0, 200),
         coop_players=coop,
         coop_type=Game.coop_type_str(COOP_TYPES.get(coop, [])),
-        coop_screen_type=random.choice(COOP_SCREEN),
         input_recommendation=random.choice(INPUT_OPTIONS),
         playtime_seconds=random.randint(0, 500000),
         notes="",

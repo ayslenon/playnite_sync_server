@@ -25,8 +25,26 @@ def init_db():
         columns = {c["name"] for c in inspect(connection).get_columns("games")}
         if "multiplayer_mode" not in columns:
             connection.execute(text("ALTER TABLE games ADD COLUMN multiplayer_mode TEXT NOT NULL DEFAULT '[]'"))
-            connection.execute(text("UPDATE games SET multiplayer_mode = '[\"Competitivo/Versus\"]' WHERE coop_screen_type = 'Versus'"))
-        connection.execute(text("UPDATE games SET coop_screen_type = 'Tela Compartilhada' WHERE coop_screen_type IN ('Tela Inteira', 'Versus')"))
+            columns.add("multiplayer_mode")
+
+        # Preserve o significado do legado "Tela: Versus" antes de remover a coluna.
+        if "coop_screen_type" in columns:
+            import json
+            rows = connection.execute(text(
+                "SELECT id, multiplayer_mode FROM games WHERE coop_screen_type = 'Versus'"
+            )).all()
+            for game_id, raw_modes in rows:
+                try:
+                    modes = json.loads(raw_modes or "[]")
+                except (TypeError, ValueError):
+                    modes = []
+                if "Competitivo/Versus" not in modes:
+                    modes.append("Competitivo/Versus")
+                    connection.execute(
+                        text("UPDATE games SET multiplayer_mode = :modes WHERE id = :id"),
+                        {"modes": json.dumps(modes, ensure_ascii=False), "id": game_id},
+                    )
+
         rows = connection.execute(text("SELECT id, coop_type FROM games")).all()
         import json
         for game_id, raw in rows:
@@ -37,6 +55,13 @@ def init_db():
             if isinstance(values, list) and "Um Jogador" in values:
                 connection.execute(text("UPDATE games SET coop_type = :value WHERE id = :id"),
                                    {"value": json.dumps([v for v in values if v != "Um Jogador"], ensure_ascii=False), "id": game_id})
+
+        # Campos removidos do produto. DROP COLUMN é idempotente pela inspeção.
+        columns = {c["name"] for c in inspect(connection).get_columns("games")}
+        if "replay_score" in columns:
+            connection.execute(text("ALTER TABLE games DROP COLUMN replay_score"))
+        if "coop_screen_type" in columns:
+            connection.execute(text("ALTER TABLE games DROP COLUMN coop_screen_type"))
 
 
 def get_session():
